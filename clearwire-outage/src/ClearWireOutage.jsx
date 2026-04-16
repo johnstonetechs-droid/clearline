@@ -341,13 +341,13 @@ async function triggerSocialPost(area, serviceType) {
 // The Edge Function receives: { to, reportId, type }
 // type: "confirmation" | "followup" | "resolved"
 async function scheduleSMSNotification(phone, reportId, type = "confirmation") {
-  console.log("[SMS STUB]", { phone: phone.slice(0,3)+"*****", reportId, type });
-  // TODO: POST to Supabase Edge Function /functions/v1/send-sms
-  // Body: { to: phone, reportId, type }
-  // Edge Function uses Twilio to send:
-  //   confirmation: "Your service disruption report was received. We'll follow up in ~2 hours."
-  //   followup:    "Has your service been restored? Reply YES or NO."
-  //   resolved:    "Service in your area has been restored. Was your issue resolved? Reply YES or NO."
+  try {
+    await supabase.functions.invoke("send-sms", {
+      body: { to: phone, reportId, type },
+    });
+  } catch (e) {
+    console.error("[SMS] Failed to invoke send-sms:", e);
+  }
 }
 
 // ─── Supabase: save report ────────────────────────────────────────────────────
