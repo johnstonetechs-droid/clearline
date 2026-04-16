@@ -173,7 +173,7 @@ function MapPreview(){
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function ClearLineWebsite(){
+export default function ClearWireWebsite(){
   const [menuOpen,setMenuOpen]=useState(false);
   const [scrolled,setScrolled]=useState(false);
   const [activeTab,setActiveTab]=useState("provider");
@@ -231,7 +231,7 @@ export default function ClearLineWebsite(){
       color:T.blue600,
       icon:"building",
       stat:"$4–8",
-      statDesc:"Cost per inbound 'when will it be back?' call that ClearLine absorbs — before a single crew rolls.",
+      statDesc:"Cost per inbound 'when will it be back?' call that ClearWire absorbs — before a single crew rolls.",
     },
     contractor:{
       label:"Contractors",
@@ -272,7 +272,7 @@ export default function ClearLineWebsite(){
       title:"Cities & Municipalities",
       subtitle:"Give your community a place to report. Give yourself a way to respond.",
       points:[
-        "Post the ClearLine reporting link during service disruptions — residents get answers, you look responsive",
+        "Post the ClearWire reporting link during service disruptions — residents get answers, you look responsive",
         "Structured escalation path for infrastructure complaints beyond 311",
         "Real-time damage documentation for city infrastructure planning and accountability",
         "Free disaster reporting tool for residents during declared emergencies",
@@ -305,7 +305,7 @@ export default function ClearLineWebsite(){
         <div style={{maxWidth:1200,margin:"0 auto",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:T.blue600,animation:"glow 2s infinite",flexShrink:0}}/>
-            <span style={{fontFamily:"var(--font-display)",fontSize:22,color:"#fff",lineHeight:1}}>ClearLine</span>
+            <span style={{fontFamily:"var(--font-display)",fontSize:22,color:"#fff",lineHeight:1}}>ClearWire</span>
             <span style={{fontSize:10,color:T.neutral400,fontWeight:600,letterSpacing:".1em",marginTop:2}}>FIELD INTEL</span>
           </div>
           <div className="hide-mobile" style={{display:"flex",alignItems:"center",gap:32}}>
@@ -354,7 +354,7 @@ export default function ClearLineWebsite(){
                 <span style={{color:T.blue400}}>Before the disruption begins.</span>
               </h1>
               <p style={{fontSize:17,color:T.neutral400,lineHeight:1.7,marginBottom:16,maxWidth:500}}>
-                ClearLine connects field reporters, contractors, service providers,
+                ClearWire connects field reporters, contractors, service providers,
                 and communities on a single real-time platform.
               </p>
               {/* Tagline */}
@@ -574,13 +574,13 @@ export default function ClearLineWebsite(){
               </h2>
               <p style={{fontSize:16,color:T.neutral400,lineHeight:1.7,marginBottom:24,maxWidth:480}}>
                 Cities are the first to hear about service disruptions from residents — and currently
-                the last to have a structured tool to do anything about it. ClearLine gives municipalities
+                the last to have a structured tool to do anything about it. ClearWire gives municipalities
                 a community reporting link, a damage escalation path, and a disaster response tool.
                 No procurement process. No contract to start.
               </p>
               <p style={{fontSize:14,color:T.neutral600,lineHeight:1.6,marginBottom:32,
                 borderLeft:"3px solid #7C3AED",paddingLeft:16}}>
-                When a ward councilman posts the ClearLine link during a service disruption, residents
+                When a ward councilman posts the ClearWire link during a service disruption, residents
                 get answers and the city looks responsive — using a tool that costs them nothing
                 and builds a relationship with the service providers responsible for the repair.
               </p>
@@ -595,7 +595,7 @@ export default function ClearLineWebsite(){
             </div>
             <div ref={addReveal} className="reveal" style={{display:"flex",flexDirection:"column",gap:14}}>
               {[
-                {icon:"link",  label:"Distribution channel",    desc:"Post the ClearLine link on city social during disruptions — residents report, you look responsive"},
+                {icon:"link",  label:"Distribution channel",    desc:"Post the ClearWire link on city social during disruptions — residents report, you look responsive"},
                 {icon:"map",   label:"Damage escalation",       desc:"Infrastructure complaints route beyond 311 to the responsible service provider automatically"},
                 {icon:"heart", label:"Community trust",         desc:"A neutral third-party platform your residents trust more than the carrier's own status page"},
                 {icon:"city",  label:"Disaster reporting",      desc:"Free disruption reporting for residents during declared emergencies — no barriers, no cost"},
@@ -637,13 +637,13 @@ export default function ClearLineWebsite(){
                 <span style={{color:T.electric}}>the community comes first.</span>
               </h2>
               <p style={{fontSize:16,color:T.neutral400,lineHeight:1.7,marginBottom:20,maxWidth:480}}>
-                During declared emergencies, ClearLine activates a dedicated disaster response mode —
+                During declared emergencies, ClearWire activates a dedicated disaster response mode —
                 removing barriers so field crews, mutual aid teams, and residents can document and
                 report damage without friction. No accounts required. No paywalls for reporters
                 or affected communities.
               </p>
               <p style={{fontSize:15,color:T.neutral400,lineHeight:1.7,marginBottom:20,maxWidth:480}}>
-                Sustaining disaster response infrastructure requires resources. ClearLine is actively
+                Sustaining disaster response infrastructure requires resources. ClearWire is actively
                 pursuing federal grant programs, state emergency management partnerships, and public
                 agency support to fund this capability at scale.
               </p>
@@ -726,7 +726,7 @@ export default function ClearLineWebsite(){
           </h2>
           <p style={{fontSize:16,color:T.neutral400,lineHeight:1.7,
             maxWidth:480,margin:"0 auto 40px"}}>
-            ClearLine is live and operating in Cleveland. Request a demo to see
+            ClearWire is live and operating in Cleveland. Request a demo to see
             real disruption and damage data from your service area.
           </p>
           <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap",marginBottom:32}}>
@@ -756,7 +756,7 @@ export default function ClearLineWebsite(){
             <div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
                 <div style={{width:9,height:9,borderRadius:"50%",background:T.blue600}}/>
-                <span style={{fontFamily:"var(--font-display)",fontSize:20,color:"#fff"}}>ClearLine</span>
+                <span style={{fontFamily:"var(--font-display)",fontSize:20,color:"#fff"}}>ClearWire</span>
               </div>
               <p style={{fontSize:13,color:T.neutral400,lineHeight:1.7,maxWidth:280,marginBottom:16}}>
                 Infrastructure damage intelligence. One platform. Every stakeholder. Closed loop.
@@ -787,7 +787,7 @@ export default function ClearLineWebsite(){
           <div style={{borderTop:`1px solid ${T.neutral900}`,paddingTop:24,
             display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
             <div style={{fontSize:12,color:T.neutral600}}>
-              © 2026 ClearLine. Infrastructure Damage Intelligence.
+              © 2026 ClearWire. Infrastructure Damage Intelligence.
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <div style={{width:6,height:6,borderRadius:"50%",background:T.green}}/>

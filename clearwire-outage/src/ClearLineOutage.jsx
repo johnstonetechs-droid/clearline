@@ -1,5 +1,5 @@
 /**
- * ClearLine Outage Reporter v2
+ * ClearWire Outage Reporter v2
  * Design System v1.0 compliant
  * Pending changes implemented:
  *  - Supabase backend connection
@@ -30,7 +30,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-// ─── Design tokens (ClearLine Design System v1.0) ────────────────────────────
+// ─── Design tokens (ClearWire Design System v1.0) ────────────────────────────
 const T = {
   // Brand
   navy900: "#0A1628", navy800: "#0F2040", navy700: "#162952",
@@ -252,7 +252,7 @@ async function geocodeAddress(addr) {
   try {
     const r = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr + ", USA")}&format=json&limit=1`,
-      { headers: { "User-Agent": "ClearLineOutage/2.0" } }
+      { headers: { "User-Agent": "ClearWireOutage/2.0" } }
     );
     const d = await r.json();
     if (d.length) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon), display: d[0].display_name.split(",").slice(0,3).join(",") };
@@ -312,7 +312,7 @@ function detectOutageCluster(reports) {
 async function triggerSocialPost(area, serviceType) {
   const svc = SERVICES.find(s => s.id === serviceType);
   const svcLabel = svc ? svc.label : "Service";
-  const message = `${svcLabel} disruption reported in ${area}. Are you experiencing issues? Report here and get notified when restored → https://clearline.app/report #ClearLine #${area.replace(/\s/g,"")}`;
+  const message = `${svcLabel} disruption reported in ${area}. Are you experiencing issues? Report here and get notified when restored → https://clearwire.app/report #ClearWire #${area.replace(/\s/g,"")}`;
   console.log("[SOCIAL POST TRIGGER]", message);
 
   // TODO: X (Twitter) API v2
@@ -430,7 +430,7 @@ async function requestPushPermission() {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function ClearLineOutage() {
+export default function ClearWireOutage() {
   const [view, setView]               = useState("home");
   const [step, setStep]               = useState(1);
   const [service, setService]         = useState(null);
@@ -730,7 +730,7 @@ export default function ClearLineOutage() {
           <div style={{ width:10, height:10, borderRadius:"50%", background:"var(--blue600)",
             animation:"glow 2s infinite", flexShrink:0 }}/>
           <span style={{ fontFamily:"var(--font-display)", fontSize:19, color:"var(--navy900)", lineHeight:1 }}>
-            ClearLine
+            ClearWire
           </span>
           <span style={{ fontSize:10, color:"var(--n400)", fontWeight:600, letterSpacing:".08em" }}>
             OUTAGE REPORTS

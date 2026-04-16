@@ -1,5 +1,5 @@
 /**
- * ClearLine Field Reporter v5
+ * ClearWire Field Reporter v5
  * Design System v1.0 compliant — full visual rework
  * Changes from v4:
  *  - Fonts: DM Serif Display + DM Sans (replaces Barlow Condensed)
@@ -29,7 +29,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-// ─── Design tokens (ClearLine Design System v1.0 — Dark Surface) ─────────────
+// ─── Design tokens (ClearWire Design System v1.0 — Dark Surface) ─────────────
 const T = {
   navy900: "#0A1628", navy800: "#0F2040", navy700: "#162952",
   blue700: "#1A4ED8", blue600: "#2563EB", blue400: "#3B82F6",
@@ -302,7 +302,7 @@ async function removeFromQueue(id) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function ClearLineFieldApp() {
+export default function ClearWireFieldApp() {
   // ── Auth & profile ──
   const [session, setSession]     = useState(null);
   const [profile, setProfile]     = useState(null);
@@ -664,7 +664,7 @@ export default function ClearLineFieldApp() {
           <div style={{ width:12, height:12, borderRadius:"50%", background:"var(--blue600)",
             animation:"glow 2s infinite", margin:"0 auto 14px" }}/>
           <div style={{ fontFamily:"var(--font-display)", fontSize:32, color:"#fff", marginBottom:6 }}>
-            ClearLine
+            ClearWire
           </div>
           <div style={{ fontSize:12, color:"var(--n400)", letterSpacing:".08em" }}>FIELD REPORTER</div>
         </div>
@@ -813,7 +813,7 @@ export default function ClearLineFieldApp() {
           <div style={{ width:10, height:10, borderRadius:"50%", background:"var(--blue600)",
             animation:"glow 2s infinite" }}/>
           <span style={{ fontFamily:"var(--font-display)", fontSize:20, color:"#fff", lineHeight:1 }}>
-            ClearLine
+            ClearWire
           </span>
           <span style={{ fontSize:9, color:"var(--n600)", fontWeight:600, letterSpacing:".1em",
             marginTop:2 }}>FIELD</span>
