@@ -121,7 +121,6 @@ export default function Report() {
         longitude: location.lng,
         accuracyMeters: location.accuracy ?? undefined,
         deviceId,
-        isTest: true, // TODO: Remove when going to production
       });
 
       if (!result.ok) {

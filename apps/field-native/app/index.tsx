@@ -3,13 +3,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { T } from '@clearwire/brand';
 
+import { Logo } from '../components/Logo';
+
 export default function Home() {
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.hero}>
-        <Text style={styles.logo}>ClearWire</Text>
+        <View style={styles.logoRow}>
+          <Logo size={44} />
+          <Text style={styles.logoText}>ClearWire</Text>
+        </View>
+        <Text style={styles.subBrand}>FIELD REPORTER</Text>
         <Text style={styles.tagline}>
           See damage? Tap, snap, submit.
         </Text>
@@ -51,16 +57,28 @@ const styles = StyleSheet.create({
   hero: {
     marginTop: T.space.xxl,
   },
-  logo: {
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: T.space.md,
+  },
+  logoText: {
     fontSize: T.font.display,
     fontWeight: '700',
-    color: T.primary,
+    color: T.text,
     letterSpacing: -1,
+  },
+  subBrand: {
+    fontSize: T.font.xs,
+    color: T.textDim,
+    letterSpacing: 2,
+    marginTop: T.space.sm,
+    fontWeight: '600',
   },
   tagline: {
     fontSize: T.font.lg,
     color: T.textMuted,
-    marginTop: T.space.sm,
+    marginTop: T.space.md,
   },
   actions: {
     gap: T.space.md,
