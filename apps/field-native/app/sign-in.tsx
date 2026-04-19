@@ -13,41 +13,95 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { T } from '@clearwire/brand';
-import { signInWithMagicLink, verifyEmailOtp } from '../lib/auth';
+import {
+  signInWithPassword,
+  signUpWithPassword,
+  signInWithMagicLink,
+  verifyEmailOtp,
+} from '../lib/auth';
 
-type Stage = 'form' | 'sending' | 'sent' | 'verifying' | 'error';
+type Mode = 'signin' | 'register' | 'code';
+type Busy = 'idle' | 'submitting' | 'sending-code' | 'verifying-code';
 
 export default function SignIn() {
   const router = useRouter();
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState('');
-  const [stage, setStage] = useState<Stage>('form');
+  const [codeSent, setCodeSent] = useState(false);
+  const [busy, setBusy] = useState<Busy>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const passwordValid = password.length >= 6;
   const codeValid = /^\d{6,10}$/.test(code);
 
-  async function handleSend() {
-    if (!emailValid) return;
-    setStage('sending');
+  function switchMode(m: Mode) {
+    setMode(m);
     setErrorMsg(null);
-    const { error } = await signInWithMagicLink(email.trim());
+    setCode('');
+    setCodeSent(false);
+  }
+
+  async function handleSignIn() {
+    if (!emailValid || !passwordValid) return;
+    setBusy('submitting');
+    setErrorMsg(null);
+    const { error } = await signInWithPassword(email.trim(), password);
+    setBusy('idle');
     if (error) {
       setErrorMsg(error.message);
-      setStage('error');
       return;
     }
-    setStage('sent');
+    router.replace('/profile');
+  }
+
+  async function handleRegister() {
+    if (!emailValid || !passwordValid) return;
+    setBusy('submitting');
+    setErrorMsg(null);
+    const { error } = await signUpWithPassword(email.trim(), password);
+    setBusy('idle');
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    // If email confirmation is on in Supabase, user must verify. Sign in
+    // attempt will fail until they do. Give them a clear message either way.
+    const { error: siErr } = await signInWithPassword(email.trim(), password);
+    if (siErr) {
+      setErrorMsg(
+        'Account created. Check your email to confirm, then sign in.'
+      );
+      setMode('signin');
+      return;
+    }
+    router.replace('/profile');
+  }
+
+  async function handleSendCode() {
+    if (!emailValid) return;
+    setBusy('sending-code');
+    setErrorMsg(null);
+    const { error } = await signInWithMagicLink(email.trim());
+    setBusy('idle');
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    setCodeSent(true);
   }
 
   async function handleVerifyCode() {
     if (!codeValid) return;
-    setStage('verifying');
+    setBusy('verifying-code');
     setErrorMsg(null);
     const { error } = await verifyEmailOtp(email.trim(), code);
+    setBusy('idle');
     if (error) {
       setErrorMsg(error.message);
-      setStage('sent');
       return;
     }
     router.replace('/profile');
@@ -66,97 +120,165 @@ export default function SignIn() {
         </View>
 
         <View style={styles.body}>
-          <Text style={styles.title}>Sign in as a pro</Text>
+          <Text style={styles.title}>
+            {mode === 'register' ? 'Create an account' : 'Sign in as a pro'}
+          </Text>
           <Text style={styles.subtitle}>
             Pros get proximity push alerts when damage is reported nearby.
-            Enter your email and we'll send a sign-in link.
           </Text>
 
-          {stage === 'sent' || stage === 'verifying' ? (
-            <View style={styles.sentCard}>
-              <Text style={styles.sentTitle}>Check your email</Text>
-              <Text style={styles.sentBody}>
-                We sent a code and a sign-in link to{' '}
-                <Text style={styles.emailBold}>{email}</Text>. Enter the code
-                below, or tap the link on this device.
-              </Text>
-
-              <TextInput
-                value={code}
-                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 10))}
-                placeholder="Enter code"
-                placeholderTextColor={T.textDim}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                style={styles.codeInput}
-                maxLength={10}
-                editable={stage !== 'verifying'}
-              />
-
-              {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-
+          {mode !== 'code' && (
+            <View style={styles.tabs}>
               <Pressable
-                onPress={handleVerifyCode}
-                disabled={!codeValid || stage === 'verifying'}
-                style={[
-                  styles.primaryBtn,
-                  (!codeValid || stage === 'verifying') && styles.primaryBtnDisabled,
-                ]}
+                onPress={() => switchMode('signin')}
+                style={[styles.tab, mode === 'signin' && styles.tabActive]}
               >
-                {stage === 'verifying' ? (
-                  <ActivityIndicator color={T.bg} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Verify code</Text>
-                )}
+                <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>
+                  Sign in
+                </Text>
               </Pressable>
-
               <Pressable
-                style={styles.secondaryBtn}
-                onPress={() => {
-                  setStage('form');
-                  setEmail('');
-                  setCode('');
-                  setErrorMsg(null);
-                }}
-                disabled={stage === 'verifying'}
+                onPress={() => switchMode('register')}
+                style={[styles.tab, mode === 'register' && styles.tabActive]}
               >
-                <Text style={styles.secondaryBtnText}>Use a different email</Text>
+                <Text style={[styles.tabText, mode === 'register' && styles.tabTextActive]}>
+                  Register
+                </Text>
               </Pressable>
             </View>
-          ) : (
-            <>
+          )}
+
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@company.com"
+            placeholderTextColor={T.textDim}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            style={styles.input}
+            editable={busy === 'idle' && !codeSent}
+          />
+
+          {mode !== 'code' && (
+            <View style={styles.passwordRow}>
               <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@company.com"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password (6+ chars)"
                 placeholderTextColor={T.textDim}
-                keyboardType="email-address"
+                secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
-                autoComplete="email"
-                style={styles.input}
-                editable={stage !== 'sending'}
+                autoComplete={mode === 'register' ? 'new-password' : 'password'}
+                style={[styles.input, styles.passwordInput]}
+                editable={busy === 'idle'}
               />
-
-              {stage === 'error' && errorMsg && (
-                <Text style={styles.errorText}>{errorMsg}</Text>
-              )}
-
               <Pressable
-                onPress={handleSend}
-                disabled={!emailValid || stage === 'sending'}
-                style={[
-                  styles.primaryBtn,
-                  (!emailValid || stage === 'sending') && styles.primaryBtnDisabled,
-                ]}
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.showBtn}
+                hitSlop={8}
               >
-                {stage === 'sending' ? (
-                  <ActivityIndicator color={T.bg} />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Send magic link</Text>
-                )}
+                <Text style={styles.showBtnText}>{showPassword ? 'Hide' : 'Show'}</Text>
               </Pressable>
-            </>
+            </View>
+          )}
+
+          {mode === 'code' && codeSent && (
+            <TextInput
+              value={code}
+              onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 10))}
+              placeholder="Enter code"
+              placeholderTextColor={T.textDim}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              style={styles.codeInput}
+              maxLength={10}
+              editable={busy !== 'verifying-code'}
+            />
+          )}
+
+          {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
+          {mode === 'signin' && (
+            <Pressable
+              onPress={handleSignIn}
+              disabled={!emailValid || !passwordValid || busy !== 'idle'}
+              style={[
+                styles.primaryBtn,
+                (!emailValid || !passwordValid || busy !== 'idle') && styles.primaryBtnDisabled,
+              ]}
+            >
+              {busy === 'submitting' ? (
+                <ActivityIndicator color={T.bg} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Sign in</Text>
+              )}
+            </Pressable>
+          )}
+
+          {mode === 'register' && (
+            <Pressable
+              onPress={handleRegister}
+              disabled={!emailValid || !passwordValid || busy !== 'idle'}
+              style={[
+                styles.primaryBtn,
+                (!emailValid || !passwordValid || busy !== 'idle') && styles.primaryBtnDisabled,
+              ]}
+            >
+              {busy === 'submitting' ? (
+                <ActivityIndicator color={T.bg} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Create account</Text>
+              )}
+            </Pressable>
+          )}
+
+          {mode === 'code' && !codeSent && (
+            <Pressable
+              onPress={handleSendCode}
+              disabled={!emailValid || busy !== 'idle'}
+              style={[
+                styles.primaryBtn,
+                (!emailValid || busy !== 'idle') && styles.primaryBtnDisabled,
+              ]}
+            >
+              {busy === 'sending-code' ? (
+                <ActivityIndicator color={T.bg} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Send code</Text>
+              )}
+            </Pressable>
+          )}
+
+          {mode === 'code' && codeSent && (
+            <Pressable
+              onPress={handleVerifyCode}
+              disabled={!codeValid || busy !== 'idle'}
+              style={[
+                styles.primaryBtn,
+                (!codeValid || busy !== 'idle') && styles.primaryBtnDisabled,
+              ]}
+            >
+              {busy === 'verifying-code' ? (
+                <ActivityIndicator color={T.bg} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Verify code</Text>
+              )}
+            </Pressable>
+          )}
+
+          {mode !== 'code' ? (
+            <Pressable onPress={() => switchMode('code')} style={styles.linkBtn}>
+              <Text style={styles.linkBtnText}>
+                Forgot password? Sign in with email code
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => switchMode('signin')} style={styles.linkBtn}>
+              <Text style={styles.linkBtnText}>Back to password sign-in</Text>
+            </Pressable>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -174,18 +296,27 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: T.space.lg,
     paddingTop: T.space.xl,
-    gap: T.space.lg,
+    gap: T.space.md,
   },
-  title: {
-    color: T.text,
-    fontSize: T.font.xxl,
-    fontWeight: '700',
+  title: { color: T.text, fontSize: T.font.xxl, fontWeight: '700' },
+  subtitle: { color: T.textMuted, fontSize: T.font.md, lineHeight: 22 },
+  tabs: {
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: T.surfaceAlt,
+    borderRadius: T.radius.md,
+    padding: 4,
+    marginBottom: T.space.sm,
   },
-  subtitle: {
-    color: T.textMuted,
-    fontSize: T.font.md,
-    lineHeight: 22,
+  tab: {
+    flex: 1,
+    paddingVertical: T.space.sm + 2,
+    alignItems: 'center',
+    borderRadius: T.radius.sm,
   },
+  tabActive: { backgroundColor: T.primary },
+  tabText: { color: T.textMuted, fontSize: T.font.sm, fontWeight: '600' },
+  tabTextActive: { color: T.bg, fontWeight: '700' },
   input: {
     backgroundColor: T.surface,
     borderColor: T.border,
@@ -195,6 +326,16 @@ const styles = StyleSheet.create({
     color: T.text,
     fontSize: T.font.md,
   },
+  passwordRow: { position: 'relative' },
+  passwordInput: { paddingRight: 60 },
+  showBtn: {
+    position: 'absolute',
+    right: T.space.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  showBtnText: { color: T.primary, fontSize: T.font.sm, fontWeight: '600' },
   codeInput: {
     backgroundColor: T.bg,
     borderColor: T.border,
@@ -213,34 +354,10 @@ const styles = StyleSheet.create({
     paddingVertical: T.space.lg,
     borderRadius: T.radius.lg,
     alignItems: 'center',
+    marginTop: T.space.sm,
   },
   primaryBtnDisabled: { opacity: 0.4 },
   primaryBtnText: { color: T.bg, fontSize: T.font.lg, fontWeight: '700' },
-  sentCard: {
-    backgroundColor: T.surface,
-    borderColor: T.border,
-    borderWidth: 1,
-    borderRadius: T.radius.lg,
-    padding: T.space.lg,
-    gap: T.space.md,
-  },
-  sentTitle: {
-    color: T.text,
-    fontSize: T.font.xl,
-    fontWeight: '700',
-  },
-  sentBody: {
-    color: T.textMuted,
-    fontSize: T.font.md,
-    lineHeight: 22,
-  },
-  emailBold: { color: T.text, fontWeight: '700' },
-  secondaryBtn: {
-    backgroundColor: T.surfaceAlt,
-    paddingVertical: T.space.md,
-    borderRadius: T.radius.md,
-    alignItems: 'center',
-    marginTop: T.space.sm,
-  },
-  secondaryBtnText: { color: T.text, fontSize: T.font.md, fontWeight: '600' },
+  linkBtn: { alignItems: 'center', paddingVertical: T.space.md },
+  linkBtnText: { color: T.textMuted, fontSize: T.font.sm, textDecorationLine: 'underline' },
 });

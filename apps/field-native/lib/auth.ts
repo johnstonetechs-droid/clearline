@@ -41,6 +41,20 @@ export function useAuth(): AuthStatus {
   return status;
 }
 
+export async function signUpWithPassword(email: string, password: string) {
+  return supabase.auth.signUp({ email, password });
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  return supabase.auth.signInWithPassword({ email, password });
+}
+
+export async function updatePassword(newPassword: string) {
+  return supabase.auth.updateUser({ password: newPassword });
+}
+
+// Secondary path: email OTP. Kept as password-recovery / legacy-account
+// fallback for users who signed up before password auth was added.
 export async function signInWithMagicLink(email: string) {
   const redirectTo = Linking.createURL('auth-callback');
   const { error } = await supabase.auth.signInWithOtp({

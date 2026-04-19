@@ -17,7 +17,7 @@ import { T } from '@clearwire/brand';
 import type { ProRole } from '@clearwire/supabase';
 
 import { supabase } from '../lib/supabase';
-import { useAuth, signOut } from '../lib/auth';
+import { useAuth, signOut, updatePassword } from '../lib/auth';
 import {
   registerForPushNotificationsAsync,
   sendTestPush,
@@ -56,6 +56,9 @@ export default function ProfileScreen() {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [enablingAlerts, setEnablingAlerts] = useState(false);
   const [testingPush, setTestingPush] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
   useEffect(() => {
     if (auth.state === 'signed-out') {
@@ -194,6 +197,23 @@ export default function ProfileScreen() {
     if (!res.ok) {
       Alert.alert('Test failed', res.reason);
     }
+  }
+
+  async function handleChangePassword() {
+    if (newPassword.length < 6) {
+      Alert.alert('Password too short', 'Use at least 6 characters.');
+      return;
+    }
+    setUpdatingPassword(true);
+    const { error } = await updatePassword(newPassword);
+    setUpdatingPassword(false);
+    if (error) {
+      Alert.alert('Update failed', error.message);
+      return;
+    }
+    setNewPassword('');
+    setPasswordOpen(false);
+    Alert.alert('Password updated', 'Use the new password next time you sign in.');
   }
 
   async function handleSignOut() {
@@ -397,6 +417,54 @@ export default function ProfileScreen() {
         </Pressable>
 
         <View style={styles.divider} />
+
+        <Text style={styles.sectionLabel}>Account</Text>
+        {passwordOpen ? (
+          <View style={{ gap: T.space.md }}>
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="New password (6+ chars)"
+              placeholderTextColor={T.textDim}
+              secureTextEntry
+              autoCapitalize="none"
+              style={styles.input}
+            />
+            <View style={{ flexDirection: 'row', gap: T.space.sm }}>
+              <Pressable
+                onPress={handleChangePassword}
+                disabled={updatingPassword || newPassword.length < 6}
+                style={[
+                  styles.primaryBtn,
+                  { flex: 1 },
+                  (updatingPassword || newPassword.length < 6) && styles.primaryBtnDisabled,
+                ]}
+              >
+                {updatingPassword ? (
+                  <ActivityIndicator color={T.bg} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Set password</Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setPasswordOpen(false);
+                  setNewPassword('');
+                }}
+                style={[styles.secondaryBtn, { flex: 1 }]}
+              >
+                <Text style={styles.secondaryBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setPasswordOpen(true)}
+            style={styles.secondaryBtn}
+          >
+            <Text style={styles.secondaryBtnText}>Change password</Text>
+          </Pressable>
+        )}
 
         <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
           <Text style={styles.signOutText}>Sign out</Text>
