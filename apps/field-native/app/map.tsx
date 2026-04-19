@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,18 +19,19 @@ import {
   type DamageType,
   type ReportStatus,
   DAMAGE_TYPE_LABELS,
+  DAMAGE_TYPE_ICONS,
 } from '@clearwire/supabase';
 
 import { supabase } from '../lib/supabase';
+import { DamageIcon } from '../components/DamageIcon';
 
-// Cleveland city center — fallback when GPS is denied. Matches src/App.jsx.
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
 const DEFAULT_RADIUS_MILES = 25;
 const DEFAULT_SINCE_HOURS = 72;
 
 type Center = { lat: number; lng: number };
+type ViewMode = 'map' | 'list';
 
-// Shape returned by public.nearby_reports — flat lat/lng (not GeoJSON).
 type NearbyReport = {
   id: string;
   created_at: string;
@@ -42,6 +44,7 @@ type NearbyReport = {
   status: ReportStatus;
   verified_by_pro: boolean;
   affected_company: string | null;
+  reporter_display_name: string | null;
 };
 
 export default function MapScreen() {
@@ -52,6 +55,9 @@ export default function MapScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<NearbyReport | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [view, setView] = useState<ViewMode>('map');
+  const [damageFilter, setDamageFilter] = useState<Set<DamageType>>(new Set());
+  const [companyFilter, setCompanyFilter] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -92,18 +98,37 @@ export default function MapScreen() {
     })();
   }, [center, refreshKey]);
 
+  const companiesInResults = useMemo(() => {
+    const set = new Set<string>();
+    (reports ?? []).forEach((r) => {
+      if (r.affected_company) set.add(r.affected_company);
+    });
+    return Array.from(set).sort();
+  }, [reports]);
+
+  const filteredReports = useMemo(() => {
+    return (reports ?? []).filter((r) => {
+      if (damageFilter.size > 0 && !damageFilter.has(r.damage_type)) return false;
+      if (companyFilter.size > 0) {
+        if (!r.affected_company) return false;
+        if (!companyFilter.has(r.affected_company)) return false;
+      }
+      return true;
+    });
+  }, [reports, damageFilter, companyFilter]);
+
   const reportsById = useMemo(() => {
     const byId: Record<string, NearbyReport> = {};
-    (reports ?? []).forEach((r) => {
+    filteredReports.forEach((r) => {
       byId[r.id] = r;
     });
     return byId;
-  }, [reports]);
+  }, [filteredReports]);
 
   const html = useMemo(() => {
     if (!center || !reports) return null;
-    return buildMapHtml(center, reports);
-  }, [center, reports]);
+    return buildMapHtml(center, filteredReports);
+  }, [center, filteredReports]);
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
@@ -114,11 +139,29 @@ export default function MapScreen() {
           if (report) setSelected(report);
         }
       } catch {
-        // ignore malformed messages
+        // ignore
       }
     },
     [reportsById]
   );
+
+  function toggleDamage(type: DamageType) {
+    setDamageFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
+  function toggleCompany(name: string) {
+    setCompanyFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -126,7 +169,24 @@ export default function MapScreen() {
         <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={12}>
           <Text style={styles.headerBtnText}>← Back</Text>
         </Pressable>
-        <Text style={styles.title}>Nearby reports</Text>
+        <View style={styles.viewToggle}>
+          <Pressable
+            onPress={() => setView('map')}
+            style={[styles.viewTab, view === 'map' && styles.viewTabActive]}
+          >
+            <Text style={[styles.viewTabText, view === 'map' && styles.viewTabTextActive]}>
+              Map
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setView('list')}
+            style={[styles.viewTab, view === 'list' && styles.viewTabActive]}
+          >
+            <Text style={[styles.viewTabText, view === 'list' && styles.viewTabTextActive]}>
+              List
+            </Text>
+          </Pressable>
+        </View>
         <Pressable
           onPress={() => setRefreshKey((k) => k + 1)}
           style={styles.headerBtn}
@@ -150,33 +210,105 @@ export default function MapScreen() {
         </View>
       )}
 
-      <View style={styles.mapContainer}>
-        {!html ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={T.primary} />
-            <Text style={styles.loadingText}>
-              {!center ? 'Getting GPS fix…' : 'Loading reports…'}
-            </Text>
-          </View>
+      <View style={styles.filters}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {(Object.keys(DAMAGE_TYPE_LABELS) as DamageType[]).map((type) => {
+            const active = damageFilter.has(type);
+            return (
+              <Pressable
+                key={type}
+                onPress={() => toggleDamage(type)}
+                style={[
+                  styles.filterChip,
+                  active && { backgroundColor: APWA_COLORS[type], borderColor: APWA_COLORS[type] },
+                ]}
+              >
+                <DamageIcon
+                  name={DAMAGE_TYPE_ICONS[type]}
+                  size={14}
+                  color={active ? palette.white : T.text}
+                />
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    active && styles.filterChipTextActive,
+                  ]}
+                >
+                  {DAMAGE_TYPE_LABELS[type]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        {companiesInResults.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+          >
+            {companiesInResults.map((name) => {
+              const active = companyFilter.has(name);
+              return (
+                <Pressable
+                  key={name}
+                  onPress={() => toggleCompany(name)}
+                  style={[styles.filterChip, active && styles.filterChipCompanyActive]}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      active && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+
+      <View style={styles.content}>
+        {view === 'map' ? (
+          !html ? (
+            <View style={styles.center}>
+              <ActivityIndicator color={T.primary} />
+              <Text style={styles.loadingText}>
+                {!center ? 'Getting GPS fix…' : 'Loading reports…'}
+              </Text>
+            </View>
+          ) : (
+            <WebView
+              key={refreshKey}
+              originWhitelist={['*']}
+              source={{ html }}
+              onMessage={onMessage}
+              javaScriptEnabled
+              domStorageEnabled
+              style={styles.webview}
+              containerStyle={{ backgroundColor: palette.navy900 }}
+            />
+          )
         ) : (
-          <WebView
-            key={refreshKey}
-            originWhitelist={['*']}
-            source={{ html }}
-            onMessage={onMessage}
-            javaScriptEnabled
-            domStorageEnabled
-            style={styles.webview}
-            // Dark bg shows through while tiles are loading
-            containerStyle={{ backgroundColor: palette.navy900 }}
+          <ReportList
+            reports={filteredReports}
+            onTap={setSelected}
+            loading={!reports}
           />
         )}
       </View>
 
-      {reports && reports.length === 0 && !error && (
+      {view === 'map' && reports && filteredReports.length === 0 && !error && (
         <View style={styles.emptyOverlay} pointerEvents="none">
           <Text style={styles.emptyText}>
-            No reports in the last {DEFAULT_SINCE_HOURS}h within {DEFAULT_RADIUS_MILES} mi
+            {reports.length === 0
+              ? `No reports in the last ${DEFAULT_SINCE_HOURS}h within ${DEFAULT_RADIUS_MILES} mi`
+              : 'No reports match the filters'}
           </Text>
         </View>
       )}
@@ -185,6 +317,76 @@ export default function MapScreen() {
         <ReportSheet report={selected} onClose={() => setSelected(null)} />
       )}
     </SafeAreaView>
+  );
+}
+
+function ReportList({
+  reports,
+  onTap,
+  loading,
+}: {
+  reports: NearbyReport[];
+  onTap: (r: NearbyReport) => void;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={T.primary} />
+      </View>
+    );
+  }
+  if (reports.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.loadingText}>No reports match the filters.</Text>
+      </View>
+    );
+  }
+  return (
+    <FlatList
+      data={reports}
+      keyExtractor={(r) => r.id}
+      contentContainerStyle={styles.listContent}
+      renderItem={({ item }) => (
+        <Pressable onPress={() => onTap(item)} style={styles.listItem}>
+          {item.photo_urls[0] && (
+            <Image source={{ uri: item.photo_urls[0] }} style={styles.listThumb} />
+          )}
+          <View style={styles.listBody}>
+            <View
+              style={[
+                styles.listPill,
+                { backgroundColor: APWA_COLORS[item.damage_type] },
+              ]}
+            >
+              <DamageIcon
+                name={DAMAGE_TYPE_ICONS[item.damage_type]}
+                size={12}
+                color={palette.white}
+              />
+              <Text style={styles.listPillText}>
+                {DAMAGE_TYPE_LABELS[item.damage_type]}
+              </Text>
+            </View>
+            {item.description && (
+              <Text style={styles.listDescription} numberOfLines={2}>
+                {item.description}
+              </Text>
+            )}
+            <View style={styles.listMetaRow}>
+              <Text style={styles.listMeta}>{timeAgo(item.created_at)}</Text>
+              {item.reporter_display_name && (
+                <Text style={styles.listMeta}>· {item.reporter_display_name}</Text>
+              )}
+              {item.affected_company && (
+                <Text style={styles.listMeta}>· {item.affected_company}</Text>
+              )}
+            </View>
+          </View>
+        </Pressable>
+      )}
+    />
   );
 }
 
@@ -211,6 +413,11 @@ function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () =>
                 { backgroundColor: APWA_COLORS[report.damage_type] },
               ]}
             >
+              <DamageIcon
+                name={DAMAGE_TYPE_ICONS[report.damage_type]}
+                size={14}
+                color={palette.white}
+              />
               <Text style={styles.damagePillText}>
                 {DAMAGE_TYPE_LABELS[report.damage_type]}
               </Text>
@@ -218,10 +425,17 @@ function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () =>
             <Text style={styles.sheetAge}>{timeAgo(report.created_at)}</Text>
           </View>
 
+          {report.reporter_display_name && (
+            <Text style={styles.sheetAttribution}>
+              Reported by {report.reporter_display_name}
+            </Text>
+          )}
+          {report.affected_company && (
+            <Text style={styles.sheetMeta}>Service: {report.affected_company}</Text>
+          )}
           {report.description && (
             <Text style={styles.sheetDescription}>{report.description}</Text>
           )}
-
           {report.accuracy_meters != null && (
             <Text style={styles.sheetMeta}>
               GPS accuracy ±{Math.round(report.accuracy_meters)}m
@@ -257,7 +471,6 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
     color: APWA_COLORS[r.damage_type] ?? palette.n400,
   }));
 
-  // Whitelisted fields only — no photo urls or descriptions leak to WebView.
   const markersJson = JSON.stringify(markers);
   const centerJson = JSON.stringify([center.lat, center.lng]);
   const userColor = palette.blue600;
@@ -267,6 +480,8 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; background: ${palette.navy900}; }
     .cw-pin {
@@ -282,11 +497,20 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
       box-shadow: 0 0 0 6px ${userColor}33;
     }
     .leaflet-container { background: ${palette.navy900}; }
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+      background-color: ${palette.blue600}55 !important;
+    }
+    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+      background-color: ${palette.blue600}cc !important;
+      color: ${palette.white} !important;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     (function(){
       var post = function(obj){
@@ -305,7 +529,6 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
         .addAttribution('© OpenStreetMap')
         .addTo(map);
 
-      // User location marker
       L.marker(center, {
         icon: L.divIcon({
           className: '',
@@ -316,7 +539,12 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
         interactive: false
       }).addTo(map);
 
-      // Report markers
+      var cluster = L.markerClusterGroup({
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        maxClusterRadius: 50
+      });
+
       markers.forEach(function(m){
         var icon = L.divIcon({
           className: '',
@@ -324,17 +552,16 @@ function buildMapHtml(center: Center, reports: NearbyReport[]): string {
           iconSize: [18, 18],
           iconAnchor: [9, 9]
         });
-        var marker = L.marker([m.lat, m.lng], { icon: icon }).addTo(map);
+        var marker = L.marker([m.lat, m.lng], { icon: icon });
         marker.on('click', function(){ post({ type: 'marker-tap', id: m.id }); });
+        cluster.addLayer(marker);
       });
+      map.addLayer(cluster);
 
-      // If we have markers, fit to them + center, lightly
       if (markers.length > 0) {
         var bounds = L.latLngBounds([center].concat(markers.map(function(m){ return [m.lat, m.lng]; })));
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       }
-
-      post({ type: 'ready' });
     })();
   </script>
 </body>
@@ -347,14 +574,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: T.space.lg,
-    paddingVertical: T.space.md,
+    paddingHorizontal: T.space.md,
+    paddingVertical: T.space.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: T.border,
+    gap: T.space.sm,
   },
   headerBtn: { paddingVertical: T.space.xs, paddingHorizontal: T.space.sm },
-  headerBtnText: { color: T.primary, fontSize: T.font.md, fontWeight: '600' },
-  title: { color: T.text, fontSize: T.font.md, fontWeight: '700' },
+  headerBtnText: { color: T.primary, fontSize: T.font.sm, fontWeight: '600' },
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: T.surfaceAlt,
+    borderRadius: T.radius.md,
+    padding: 3,
+    gap: 2,
+  },
+  viewTab: {
+    paddingHorizontal: T.space.md,
+    paddingVertical: T.space.xs + 2,
+    borderRadius: T.radius.sm,
+  },
+  viewTabActive: { backgroundColor: T.primary },
+  viewTabText: { color: T.textMuted, fontSize: T.font.sm, fontWeight: '600' },
+  viewTabTextActive: { color: T.bg, fontWeight: '700' },
   banner: {
     backgroundColor: T.surfaceAlt,
     paddingHorizontal: T.space.lg,
@@ -362,13 +604,69 @@ const styles = StyleSheet.create({
   },
   bannerError: { backgroundColor: T.danger },
   bannerText: { color: T.text, fontSize: T.font.sm },
-  mapContainer: { flex: 1 },
+  filters: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: T.border,
+    paddingVertical: T.space.sm,
+    gap: T.space.xs,
+  },
+  filterRow: { gap: T.space.xs, paddingHorizontal: T.space.md },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: T.space.sm + 2,
+    paddingVertical: T.space.xs + 2,
+    borderRadius: T.radius.pill,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.surface,
+  },
+  filterChipCompanyActive: {
+    backgroundColor: T.primary,
+    borderColor: T.primary,
+  },
+  filterChipText: { color: T.text, fontSize: T.font.xs, fontWeight: '500' },
+  filterChipTextActive: { color: palette.white, fontWeight: '700' },
+  content: { flex: 1 },
   webview: { flex: 1, backgroundColor: T.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: T.space.md },
   loadingText: { color: T.textMuted, fontSize: T.font.sm },
+
+  listContent: { padding: T.space.md, gap: T.space.md },
+  listItem: {
+    flexDirection: 'row',
+    gap: T.space.md,
+    backgroundColor: T.surface,
+    borderRadius: T.radius.md,
+    padding: T.space.md,
+    borderWidth: 1,
+    borderColor: T.border,
+  },
+  listThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: T.radius.sm,
+    backgroundColor: T.surfaceAlt,
+  },
+  listBody: { flex: 1, gap: T.space.xs, justifyContent: 'center' },
+  listPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: T.space.sm,
+    paddingVertical: 3,
+    borderRadius: T.radius.pill,
+  },
+  listPillText: { color: palette.white, fontSize: T.font.xs, fontWeight: '700' },
+  listDescription: { color: T.text, fontSize: T.font.sm, lineHeight: 18 },
+  listMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  listMeta: { color: T.textMuted, fontSize: T.font.xs },
+
   emptyOverlay: {
     position: 'absolute',
-    top: 120,
+    top: 180,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -427,17 +725,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   damagePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: T.space.xs,
     paddingHorizontal: T.space.md,
     paddingVertical: T.space.xs + 2,
     borderRadius: T.radius.pill,
   },
-  damagePillText: { color: T.text, fontSize: T.font.sm, fontWeight: '700' },
+  damagePillText: { color: palette.white, fontSize: T.font.sm, fontWeight: '700' },
   sheetAge: { color: T.textMuted, fontSize: T.font.sm },
-  sheetDescription: {
-    color: T.text,
-    fontSize: T.font.md,
-    lineHeight: 22,
-  },
+  sheetAttribution: { color: T.text, fontSize: T.font.sm, fontWeight: '600' },
+  sheetDescription: { color: T.text, fontSize: T.font.md, lineHeight: 22 },
   sheetMeta: { color: T.textDim, fontSize: T.font.sm },
   sheetCloseBtn: {
     backgroundColor: T.surfaceAlt,
