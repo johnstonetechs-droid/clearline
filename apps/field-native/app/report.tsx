@@ -29,9 +29,17 @@ import { supabase } from '../lib/supabase';
 import { getDeviceId } from '../lib/deviceId';
 import { DamageIcon } from '../components/DamageIcon';
 import { pickFromGallery, takePhotoWithPicker, type PickedPhoto } from '../lib/photoPicker';
+import { ChangeLocationSheet, type LocationChoice } from '../components/ChangeLocationSheet';
 
 type Stage = 'capture' | 'classify' | 'submitting' | 'done';
-type LocationSource = 'gps' | 'exif';
+type LocationSource = 'gps' | 'exif' | 'address' | 'map';
+
+type CustomLocation = {
+  lat: number;
+  lng: number;
+  accuracy: number | null;
+  label?: string;
+};
 
 const MAX_PHOTOS = 5;
 
@@ -50,7 +58,9 @@ export default function Report() {
     accuracy: number | null;
   } | null>(null);
   const [locationSource, setLocationSource] = useState<LocationSource>('gps');
+  const [customLocation, setCustomLocation] = useState<CustomLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,14 +84,17 @@ export default function Report() {
     })();
   }, []);
 
-  // Final location sent with the report: EXIF coords take priority over GPS
-  // when the first photo came from the gallery with location metadata.
-  const effectiveLocation = (() => {
+  // Final location sent with the report. Priority:
+  //   custom (address/map) → EXIF → GPS.
+  const effectiveLocation = ((): CustomLocation | null => {
+    if ((locationSource === 'address' || locationSource === 'map') && customLocation) {
+      return customLocation;
+    }
     if (locationSource === 'exif' && photos[0]?.exifCoords) {
       return {
         lat: photos[0].exifCoords.lat,
         lng: photos[0].exifCoords.lng,
-        accuracy: null as number | null,
+        accuracy: null,
       };
     }
     return gpsLocation;
@@ -343,30 +356,23 @@ export default function Report() {
       />
 
       <View style={styles.locationRow}>
-        <Text style={styles.locationRowLabel}>
-          {locationSource === 'exif' ? '📍 From photo' : '📍 Current location'}
-        </Text>
+        <Text style={styles.locationRowLabel}>{locationLabel(locationSource)}</Text>
         <Text style={styles.locationRowText}>
           {effectiveLocation
             ? `${effectiveLocation.lat.toFixed(5)}, ${effectiveLocation.lng.toFixed(5)}`
             : locationError ?? 'Getting location…'}
         </Text>
-        {photos[0]?.exifCoords && gpsLocation && locationSource === 'exif' && (
-          <Pressable
-            onPress={() => setLocationSource('gps')}
-            style={styles.locationSwapBtn}
-          >
-            <Text style={styles.locationSwapText}>Use current location instead</Text>
-          </Pressable>
+        {customLocation?.label && locationSource === 'address' && (
+          <Text style={styles.locationSubtext} numberOfLines={2}>
+            {customLocation.label}
+          </Text>
         )}
-        {locationSource === 'gps' && photos[0]?.exifCoords && (
-          <Pressable
-            onPress={() => setLocationSource('exif')}
-            style={styles.locationSwapBtn}
-          >
-            <Text style={styles.locationSwapText}>Use photo's location instead</Text>
-          </Pressable>
-        )}
+        <Pressable
+          onPress={() => setLocationSheetOpen(true)}
+          style={styles.locationSwapBtn}
+        >
+          <Text style={styles.locationSwapText}>Change location…</Text>
+        </Pressable>
       </View>
 
       <Pressable
@@ -391,14 +397,62 @@ export default function Report() {
           setDamageType(null);
           setDescription('');
           setLocationSource('gps');
+          setCustomLocation(null);
           setStage('capture');
         }}
         style={styles.retakeBtn}
       >
         <Text style={styles.retakeText}>Start over</Text>
       </Pressable>
+
+      <ChangeLocationSheet
+        visible={locationSheetOpen}
+        currentLocation={effectiveLocation}
+        hasExifOption={!!photos[0]?.exifCoords}
+        onCancel={() => setLocationSheetOpen(false)}
+        onPick={(choice: LocationChoice) => {
+          setLocationSheetOpen(false);
+          setLocationSource(choice.source);
+          if (choice.source === 'address' || choice.source === 'map') {
+            setCustomLocation({
+              lat: choice.lat,
+              lng: choice.lng,
+              accuracy: null,
+              label: choice.label,
+            });
+          } else if (choice.source === 'gps') {
+            setGpsLocation({
+              lat: choice.lat,
+              lng: choice.lng,
+              accuracy: choice.accuracy,
+            });
+            setCustomLocation(null);
+          } else {
+            setCustomLocation(null);
+          }
+        }}
+        onRequestExif={() => {
+          setLocationSheetOpen(false);
+          setLocationSource('exif');
+          setCustomLocation(null);
+        }}
+      />
     </ScrollView>
   );
+}
+
+function locationLabel(source: LocationSource): string {
+  switch (source) {
+    case 'exif':
+      return '📍 From photo';
+    case 'address':
+      return '📍 From address';
+    case 'map':
+      return '📍 Picked on map';
+    case 'gps':
+    default:
+      return '📍 Current location';
+  }
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -555,6 +609,7 @@ const styles = StyleSheet.create({
   },
   locationRowLabel: { color: T.text, fontSize: T.font.sm, fontWeight: '600' },
   locationRowText: { color: T.textMuted, fontSize: T.font.sm },
+  locationSubtext: { color: T.textDim, fontSize: T.font.xs, marginTop: 2 },
   locationSwapBtn: { marginTop: T.space.sm },
   locationSwapText: {
     color: T.primary,
