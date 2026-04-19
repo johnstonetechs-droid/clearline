@@ -75,3 +75,59 @@ export const DAMAGE_TYPE_ICONS: Record<DamageType, string> = {
   vegetation: 'Sprout',
   other: 'HelpCircle',
 };
+
+// ─── Outage reports (service-loss, customer-side) ────────────────────────────
+
+export type ServiceType =
+  | 'internet'
+  | 'cable_tv'
+  | 'phone'
+  | 'electric'
+  | 'water'
+  | 'other';
+
+export type OutageStatus = 'reported' | 'confirmed' | 'resolved' | 'invalid';
+
+export interface OutageReport {
+  id: string;
+  created_at: string;
+  resolved_at: string | null;
+  reporter_id: string | null;
+  reporter_device_id: string | null;
+  service_type: ServiceType;
+  provider_company: string;
+  service_location: { type: 'Point'; coordinates: [number, number] };
+  description: string | null;
+  status: OutageStatus;
+  external_ticket: string | null;
+  is_test: boolean;
+}
+
+export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
+  internet: 'Internet',
+  cable_tv: 'Cable TV',
+  phone: 'Phone',
+  electric: 'Electric',
+  water: 'Water',
+  other: 'Other',
+};
+
+export const SERVICE_TYPE_ICONS: Record<ServiceType, string> = {
+  internet: 'Wifi',
+  cable_tv: 'Tv',
+  phone: 'Phone',
+  electric: 'Zap',
+  water: 'Droplets',
+  other: 'HelpCircle',
+};
+
+// APWA-aligned colors: telecom orange for comms, electric red for power,
+// water blue for water.
+export const SERVICE_TYPE_COLORS: Record<ServiceType, string> = {
+  internet: '#EA580C',
+  cable_tv: '#EA580C',
+  phone: '#EA580C',
+  electric: '#DC2626',
+  water: '#2563EB',
+  other: '#7A94AE',
+};

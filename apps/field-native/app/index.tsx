@@ -33,17 +33,42 @@ export default function Home() {
           ]}
         >
           <Text style={styles.primaryBtnText}>Report Damage</Text>
+          <Text style={styles.primaryBtnSub}>Broken pole, downed line, etc.</Text>
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/map')}
+          onPress={() => router.push('/outage')}
           style={({ pressed }) => [
-            styles.secondaryBtn,
-            pressed && styles.secondaryBtnPressed,
+            styles.primaryBtn,
+            pressed && styles.primaryBtnPressed,
           ]}
         >
-          <Text style={styles.secondaryBtnText}>View nearby reports</Text>
+          <Text style={styles.primaryBtnText}>Report Outage</Text>
+          <Text style={styles.primaryBtnSub}>Lost internet, power, cable, etc.</Text>
         </Pressable>
+
+        <View style={styles.viewRow}>
+          <Pressable
+            onPress={() => router.push('/map')}
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              styles.secondaryBtnHalf,
+              pressed && styles.secondaryBtnPressed,
+            ]}
+          >
+            <Text style={styles.secondaryBtnText}>Nearby damage</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/outages')}
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              styles.secondaryBtnHalf,
+              pressed && styles.secondaryBtnPressed,
+            ]}
+          >
+            <Text style={styles.secondaryBtnText}>Nearby outages</Text>
+          </Pressable>
+        </View>
 
         <Pressable
           onPress={() => router.push(signedIn ? '/profile' : '/sign-in')}
@@ -105,9 +130,10 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: T.primary,
-    paddingVertical: T.space.lg + 4,
+    paddingVertical: T.space.lg,
     borderRadius: T.radius.lg,
     alignItems: 'center',
+    gap: 2,
   },
   primaryBtnPressed: {
     backgroundColor: T.primaryDark,
@@ -117,6 +143,17 @@ const styles = StyleSheet.create({
     fontSize: T.font.lg,
     fontWeight: '700',
   },
+  primaryBtnSub: {
+    color: T.bg,
+    opacity: 0.75,
+    fontSize: T.font.xs,
+    fontWeight: '500',
+  },
+  viewRow: {
+    flexDirection: 'row',
+    gap: T.space.md,
+  },
+  secondaryBtnHalf: { flex: 1 },
   secondaryBtn: {
     backgroundColor: T.surface,
     paddingVertical: T.space.lg,
