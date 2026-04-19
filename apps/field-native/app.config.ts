@@ -62,7 +62,10 @@ const config: ExpoConfig = {
     typedRoutes: true,
   },
   extra: {
-    // Fallbacks; real values come from EXPO_PUBLIC_ env vars
+    eas: {
+      projectId: '25892d13-14f5-4a75-9aa9-45cad71ac452',
+    },
+    // Runtime values come from EXPO_PUBLIC_ env vars
   },
 };
 
