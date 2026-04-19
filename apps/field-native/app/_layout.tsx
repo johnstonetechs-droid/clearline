@@ -17,6 +17,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ title: 'ClearWire Field' }} />
         <Stack.Screen name="report" options={{ title: 'New Report' }} />
+        <Stack.Screen name="map" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

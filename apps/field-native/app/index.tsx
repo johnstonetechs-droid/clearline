@@ -32,9 +32,14 @@ export default function Home() {
           <Text style={styles.primaryBtnText}>Report Damage</Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryBtn} onPress={() => {}}>
+        <Pressable
+          onPress={() => router.push('/map')}
+          style={({ pressed }) => [
+            styles.secondaryBtn,
+            pressed && styles.secondaryBtnPressed,
+          ]}
+        >
           <Text style={styles.secondaryBtnText}>View nearby reports</Text>
-          <Text style={styles.comingSoon}>coming soon</Text>
         </Pressable>
       </View>
 
@@ -105,15 +110,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.border,
   },
+  secondaryBtnPressed: {
+    backgroundColor: T.surfaceAlt,
+  },
   secondaryBtnText: {
     color: T.text,
     fontSize: T.font.md,
     fontWeight: '600',
-  },
-  comingSoon: {
-    color: T.textDim,
-    fontSize: T.font.xs,
-    marginTop: 2,
   },
   footer: {
     paddingBottom: T.space.lg,
