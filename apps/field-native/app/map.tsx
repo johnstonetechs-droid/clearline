@@ -35,12 +35,13 @@ type NearbyReport = {
   created_at: string;
   damage_type: DamageType;
   description: string | null;
-  photo_url: string;
+  photo_urls: string[];
   latitude: number;
   longitude: number;
   accuracy_meters: number | null;
   status: ReportStatus;
   verified_by_pro: boolean;
+  affected_company: string | null;
 };
 
 export default function MapScreen() {
@@ -194,7 +195,15 @@ function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () =>
       <View style={styles.sheet}>
         <View style={styles.sheetHandle} />
         <ScrollView contentContainerStyle={styles.sheetContent}>
-          <Image source={{ uri: report.photo_url }} style={styles.sheetPhoto} />
+          {report.photo_urls[0] && (
+            <Image source={{ uri: report.photo_urls[0] }} style={styles.sheetPhoto} />
+          )}
+          {report.photo_urls.length > 1 && (
+            <Text style={styles.sheetMeta}>
+              +{report.photo_urls.length - 1} more photo
+              {report.photo_urls.length > 2 ? 's' : ''}
+            </Text>
+          )}
           <View style={styles.sheetHeader}>
             <View
               style={[

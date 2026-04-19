@@ -1,14 +1,19 @@
 import type { ClearWireSupabase, DamageType } from '@clearwire/supabase';
 
+export interface SubmitReportPhoto {
+  /** Local file URI of the photo — optional, used only for logging */
+  uri?: string;
+  /** Raw bytes of the photo, read from disk by the caller */
+  bytes: ArrayBuffer;
+  ext: 'jpg' | 'png';
+}
+
 export interface SubmitReportInput {
   supabase: ClearWireSupabase;
   damageType: DamageType;
   description?: string;
-  /** Local file URI of the photo (e.g. file:///... on native) */
-  photoUri: string;
-  /** Raw bytes of the photo, read from disk by the caller */
-  photoBytes: ArrayBuffer;
-  photoExt: 'jpg' | 'png';
+  /** 1-5 photos per report (overview, close-up, angles). */
+  photos: SubmitReportPhoto[];
   latitude: number;
   longitude: number;
   accuracyMeters?: number;
@@ -16,12 +21,14 @@ export interface SubmitReportInput {
   deviceId: string;
   /** Mark as test submission */
   isTest?: boolean;
+  /** Service provider affected by the damage (optional) */
+  affectedCompany?: string;
 }
 
 export interface SubmitReportResult {
   ok: true;
   reportId: string;
-  photoUrl: string;
+  photoUrls: string[];
 }
 
 export interface SubmitReportError {
@@ -37,73 +44,80 @@ export async function submitReport(
     supabase,
     damageType,
     description,
-    photoUri,
-    photoBytes,
-    photoExt,
+    photos,
     latitude,
     longitude,
     accuracyMeters,
     deviceId,
     isTest = false,
+    affectedCompany,
   } = input;
 
-  // 1. Upload the photo bytes directly to Supabase Storage.
-  const filename = `${deviceId}/${Date.now()}.${photoExt}`;
-  const contentType = `image/${photoExt === 'jpg' ? 'jpeg' : 'png'}`;
+  if (!photos?.length) {
+    return { ok: false, error: 'at least one photo required', stage: 'upload' };
+  }
+  if (photos.length > 5) {
+    return { ok: false, error: 'at most 5 photos per report', stage: 'upload' };
+  }
 
-  console.log('[submitReport] uploading', {
-    filename,
-    byteLength: photoBytes.byteLength,
-    photoUri,
-  });
+  // Upload each photo to storage sequentially; collect public URLs.
+  const photoUrls: string[] = [];
+  const baseName = `${deviceId}/${Date.now()}`;
 
-  let uploadRes;
-  try {
-    uploadRes = await supabase.storage
+  for (let i = 0; i < photos.length; i++) {
+    const p = photos[i];
+    const filename = `${baseName}_${i}.${p.ext}`;
+    const contentType = `image/${p.ext === 'jpg' ? 'jpeg' : 'png'}`;
+
+    console.log('[submitReport] uploading', {
+      filename,
+      byteLength: p.bytes.byteLength,
+      uri: p.uri,
+    });
+
+    let uploadRes;
+    try {
+      uploadRes = await supabase.storage
+        .from('report-photos')
+        .upload(filename, p.bytes, { contentType, upsert: false });
+    } catch (e: any) {
+      console.log('[submitReport] upload threw', e?.message, e?.stack);
+      return {
+        ok: false,
+        error: `upload threw: ${e?.message ?? String(e)}`,
+        stage: 'upload',
+      };
+    }
+
+    if (uploadRes.error) {
+      return { ok: false, error: uploadRes.error.message, stage: 'upload' };
+    }
+
+    const { data: publicUrl } = supabase.storage
       .from('report-photos')
-      .upload(filename, photoBytes, {
-        contentType,
-        upsert: false,
-      });
-  } catch (e: any) {
-    console.log('[submitReport] upload threw', e?.message, e?.stack);
-    return {
-      ok: false,
-      error: `upload threw: ${e?.message ?? String(e)}`,
-      stage: 'upload',
-    };
+      .getPublicUrl(filename);
+    photoUrls.push(publicUrl.publicUrl);
   }
-
-  console.log('[submitReport] upload result', {
-    hasError: !!uploadRes.error,
-    errorMsg: uploadRes.error?.message,
-    path: uploadRes.data?.path,
-  });
-
-  if (uploadRes.error) {
-    return { ok: false, error: uploadRes.error.message, stage: 'upload' };
-  }
-
-  const { data: publicUrl } = supabase.storage
-    .from('report-photos')
-    .getPublicUrl(filename);
 
   console.log('[submitReport] inserting via RPC', {
     damage_type: damageType,
+    photo_count: photoUrls.length,
     is_test: isTest,
     lat: latitude,
     lng: longitude,
+    company: affectedCompany,
   });
 
   const insertRes = await supabase.rpc('insert_report', {
     p_damage_type: damageType,
     p_description: description ?? null,
-    p_photo_url: publicUrl.publicUrl,
+    p_photo_urls: photoUrls,
     p_latitude: latitude,
     p_longitude: longitude,
     p_accuracy_meters: accuracyMeters ?? null,
     p_reporter_device_id: deviceId,
     p_is_test: isTest,
+    p_affected_company: affectedCompany ?? null,
   });
 
   console.log('[submitReport] insert result', {
@@ -122,6 +136,6 @@ export async function submitReport(
   return {
     ok: true,
     reportId: insertRes.data as string,
-    photoUrl: publicUrl.publicUrl,
+    photoUrls,
   };
 }

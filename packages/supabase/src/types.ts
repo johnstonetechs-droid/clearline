@@ -32,13 +32,14 @@ export interface Report {
   reporter_device_id: string | null;
   damage_type: DamageType;
   description: string | null;
-  photo_url: string;
+  photo_urls: string[];
   // Supabase returns geography as GeoJSON when selected via PostgREST
   location: { type: 'Point'; coordinates: [number, number] };
   accuracy_meters: number | null;
   status: ReportStatus;
   is_test: boolean;
   verified_by_pro: boolean;
+  affected_company: string | null;
 }
 
 export interface ProProfile {
@@ -59,4 +60,18 @@ export const DAMAGE_TYPE_LABELS: Record<DamageType, string> = {
   transformer: 'Transformer issue',
   vegetation: 'Vegetation contact',
   other: 'Other',
+};
+
+/**
+ * Lucide icon names — same string works on web (`lucide-react`) and
+ * native (`lucide-react-native`). Keep this enum-complete so TS catches
+ * missing entries when a new damage type is added.
+ */
+export const DAMAGE_TYPE_ICONS: Record<DamageType, string> = {
+  downed_line: 'Zap',
+  leaning_pole: 'AlertTriangle',
+  tree_on_wire: 'Trees',
+  transformer: 'Bolt',
+  vegetation: 'Sprout',
+  other: 'HelpCircle',
 };
