@@ -1,12 +1,31 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { T } from '@clearwire/brand';
 
 // Side-effect import: sets up foreground notification handler.
 import '../lib/pushNotifications';
 
 export default function RootLayout() {
+  const router = useRouter();
+
+  // When a proximity-alert push is tapped, route to /map and pre-select
+  // the report so its sheet opens. reportId travels in the notification
+  // data set by the notify-nearby-pros Edge Function.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as
+        | { reportId?: string }
+        | undefined;
+      if (data?.reportId) {
+        router.push({ pathname: '/map', params: { reportId: data.reportId } });
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />

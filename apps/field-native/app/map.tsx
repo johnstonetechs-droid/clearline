@@ -10,7 +10,7 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import * as Location from 'expo-location';
 
@@ -49,6 +49,7 @@ type NearbyReport = {
 
 export default function MapScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ reportId?: string }>();
   const [center, setCenter] = useState<Center | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   const [reports, setReports] = useState<NearbyReport[] | null>(null);
@@ -124,6 +125,14 @@ export default function MapScreen() {
     });
     return byId;
   }, [filteredReports]);
+
+  // If we arrived with ?reportId=... (from a tapped proximity-alert push),
+  // auto-open that report's sheet once the data is in.
+  useEffect(() => {
+    if (!params.reportId || !reports) return;
+    const match = reports.find((r) => r.id === params.reportId);
+    if (match) setSelected(match);
+  }, [params.reportId, reports]);
 
   const html = useMemo(() => {
     if (!center || !reports) return null;
