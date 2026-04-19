@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ import {
 } from '@clearwire/supabase';
 
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 import { DamageIcon } from '../components/DamageIcon';
 
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
@@ -323,7 +325,14 @@ export default function MapScreen() {
       )}
 
       {selected && (
-        <ReportSheet report={selected} onClose={() => setSelected(null)} />
+        <ReportSheet
+          report={selected}
+          onClose={() => setSelected(null)}
+          onStatusChanged={() => {
+            setSelected(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
       )}
     </SafeAreaView>
   );
@@ -399,7 +408,33 @@ function ReportList({
   );
 }
 
-function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () => void }) {
+function ReportSheet({
+  report,
+  onClose,
+  onStatusChanged,
+}: {
+  report: NearbyReport;
+  onClose: () => void;
+  onStatusChanged: () => void;
+}) {
+  const auth = useAuth();
+  const [updating, setUpdating] = useState<string | null>(null);
+  const signedIn = auth.state === 'signed-in';
+
+  async function setStatus(next: ReportStatus) {
+    setUpdating(next);
+    const { error } = await supabase
+      .from('reports')
+      .update({ status: next })
+      .eq('id', report.id);
+    setUpdating(null);
+    if (error) {
+      Alert.alert('Update failed', error.message);
+      return;
+    }
+    onStatusChanged();
+  }
+
   return (
     <View style={styles.sheetBackdrop}>
       <Pressable style={styles.sheetBackdropTap} onPress={onClose} />
@@ -451,6 +486,38 @@ function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () =>
             </Text>
           )}
 
+          <Text style={styles.sheetMeta}>Status: {report.status}</Text>
+
+          {signedIn && (
+            <View style={styles.statusActions}>
+              {reportNextStates(report.status).map((next) => (
+                <Pressable
+                  key={next.value}
+                  onPress={() => setStatus(next.value)}
+                  disabled={updating !== null}
+                  style={[
+                    styles.statusBtn,
+                    next.destructive && styles.statusBtnDanger,
+                    updating !== null && styles.statusBtnDisabled,
+                  ]}
+                >
+                  {updating === next.value ? (
+                    <ActivityIndicator color={T.text} size="small" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.statusBtnText,
+                        next.destructive && styles.statusBtnTextDanger,
+                      ]}
+                    >
+                      {next.label}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           <Pressable style={styles.sheetCloseBtn} onPress={onClose}>
             <Text style={styles.sheetCloseText}>Close</Text>
           </Pressable>
@@ -458,6 +525,33 @@ function ReportSheet({ report, onClose }: { report: NearbyReport; onClose: () =>
       </View>
     </View>
   );
+}
+
+function reportNextStates(
+  current: ReportStatus
+): Array<{ value: ReportStatus; label: string; destructive?: boolean }> {
+  switch (current) {
+    case 'reported':
+      return [
+        { value: 'acknowledged', label: 'Acknowledge' },
+        { value: 'invalid', label: 'Mark invalid', destructive: true },
+      ];
+    case 'acknowledged':
+      return [
+        { value: 'dispatched', label: 'Mark dispatched' },
+        { value: 'invalid', label: 'Mark invalid', destructive: true },
+      ];
+    case 'dispatched':
+      return [
+        { value: 'resolved', label: 'Mark resolved' },
+        { value: 'invalid', label: 'Mark invalid', destructive: true },
+      ];
+    case 'resolved':
+    case 'invalid':
+      return [{ value: 'reported', label: 'Reopen' }];
+    default:
+      return [];
+  }
 }
 
 function timeAgo(iso: string): string {
@@ -754,4 +848,20 @@ const styles = StyleSheet.create({
     marginTop: T.space.sm,
   },
   sheetCloseText: { color: T.text, fontSize: T.font.md, fontWeight: '600' },
+  statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: T.space.sm },
+  statusBtn: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    paddingVertical: T.space.md,
+    paddingHorizontal: T.space.md,
+    borderRadius: T.radius.md,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.surface,
+    alignItems: 'center',
+  },
+  statusBtnDanger: { borderColor: T.danger },
+  statusBtnDisabled: { opacity: 0.4 },
+  statusBtnText: { color: T.text, fontSize: T.font.sm, fontWeight: '600' },
+  statusBtnTextDanger: { color: T.danger },
 });

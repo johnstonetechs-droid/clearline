@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ import {
 } from '@clearwire/supabase';
 
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 import { DamageIcon } from '../components/DamageIcon';
 
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
@@ -316,7 +318,16 @@ export default function OutagesScreen() {
         </View>
       )}
 
-      {selected && <OutageSheet outage={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <OutageSheet
+          outage={selected}
+          onClose={() => setSelected(null)}
+          onStatusChanged={() => {
+            setSelected(null);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -391,10 +402,33 @@ function OutageList({
 function OutageSheet({
   outage,
   onClose,
+  onStatusChanged,
 }: {
   outage: NearbyOutage;
   onClose: () => void;
+  onStatusChanged: () => void;
 }) {
+  const auth = useAuth();
+  const [updating, setUpdating] = useState<string | null>(null);
+  const signedIn = auth.state === 'signed-in';
+
+  async function setStatus(next: OutageStatus) {
+    setUpdating(next);
+    const patch: { status: OutageStatus; resolved_at?: string | null } = { status: next };
+    if (next === 'resolved') patch.resolved_at = new Date().toISOString();
+    if (next === 'reported' || next === 'confirmed') patch.resolved_at = null;
+    const { error } = await supabase
+      .from('outage_reports')
+      .update(patch)
+      .eq('id', outage.id);
+    setUpdating(null);
+    if (error) {
+      Alert.alert('Update failed', error.message);
+      return;
+    }
+    onStatusChanged();
+  }
+
   return (
     <View style={styles.sheetBackdrop}>
       <Pressable style={styles.sheetBackdropTap} onPress={onClose} />
@@ -438,6 +472,36 @@ function OutageSheet({
             {outage.resolved_at ? ` · resolved ${timeAgo(outage.resolved_at)}` : ''}
           </Text>
 
+          {signedIn && (
+            <View style={styles.statusActions}>
+              {outageNextStates(outage.status).map((next) => (
+                <Pressable
+                  key={next.value}
+                  onPress={() => setStatus(next.value)}
+                  disabled={updating !== null}
+                  style={[
+                    styles.statusBtn,
+                    next.destructive && styles.statusBtnDanger,
+                    updating !== null && styles.statusBtnDisabled,
+                  ]}
+                >
+                  {updating === next.value ? (
+                    <ActivityIndicator color={T.text} size="small" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.statusBtnText,
+                        next.destructive && styles.statusBtnTextDanger,
+                      ]}
+                    >
+                      {next.label}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           <Pressable style={styles.sheetCloseBtn} onPress={onClose}>
             <Text style={styles.sheetCloseText}>Close</Text>
           </Pressable>
@@ -445,6 +509,29 @@ function OutageSheet({
       </View>
     </View>
   );
+}
+
+function outageNextStates(
+  current: OutageStatus
+): Array<{ value: OutageStatus; label: string; destructive?: boolean }> {
+  switch (current) {
+    case 'reported':
+      return [
+        { value: 'confirmed', label: 'Confirm' },
+        { value: 'invalid', label: 'Mark invalid', destructive: true },
+      ];
+    case 'confirmed':
+      return [
+        { value: 'resolved', label: 'Mark resolved' },
+        { value: 'invalid', label: 'Mark invalid', destructive: true },
+      ];
+    case 'resolved':
+      return [{ value: 'confirmed', label: 'Reopen' }];
+    case 'invalid':
+      return [{ value: 'reported', label: 'Reopen' }];
+    default:
+      return [];
+  }
 }
 
 function timeAgo(iso: string): string {
@@ -725,4 +812,20 @@ const styles = StyleSheet.create({
     marginTop: T.space.sm,
   },
   sheetCloseText: { color: T.text, fontSize: T.font.md, fontWeight: '600' },
+  statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: T.space.sm },
+  statusBtn: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    paddingVertical: T.space.md,
+    paddingHorizontal: T.space.md,
+    borderRadius: T.radius.md,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.bg,
+    alignItems: 'center',
+  },
+  statusBtnDanger: { borderColor: T.danger },
+  statusBtnDisabled: { opacity: 0.4 },
+  statusBtnText: { color: T.text, fontSize: T.font.sm, fontWeight: '600' },
+  statusBtnTextDanger: { color: T.danger },
 });
