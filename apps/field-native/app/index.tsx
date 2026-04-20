@@ -57,6 +57,18 @@ export default function Home() {
           <Text style={styles.secondaryBtnText}>Nearby incidents</Text>
         </Pressable>
 
+        {signedIn && (
+          <Pressable
+            onPress={() => router.push('/my-activity')}
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              pressed && styles.secondaryBtnPressed,
+            ]}
+          >
+            <Text style={styles.secondaryBtnText}>My submissions</Text>
+          </Pressable>
+        )}
+
         <Pressable
           onPress={() => router.push(signedIn ? '/profile' : '/sign-in')}
           style={({ pressed }) => [
