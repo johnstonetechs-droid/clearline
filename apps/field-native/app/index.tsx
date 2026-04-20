@@ -47,28 +47,15 @@ export default function Home() {
           <Text style={styles.primaryBtnSub}>Lost internet, power, cable, etc.</Text>
         </Pressable>
 
-        <View style={styles.viewRow}>
-          <Pressable
-            onPress={() => router.push('/map')}
-            style={({ pressed }) => [
-              styles.secondaryBtn,
-              styles.secondaryBtnHalf,
-              pressed && styles.secondaryBtnPressed,
-            ]}
-          >
-            <Text style={styles.secondaryBtnText}>Nearby damage</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/outages')}
-            style={({ pressed }) => [
-              styles.secondaryBtn,
-              styles.secondaryBtnHalf,
-              pressed && styles.secondaryBtnPressed,
-            ]}
-          >
-            <Text style={styles.secondaryBtnText}>Nearby outages</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => router.push('/incidents')}
+          style={({ pressed }) => [
+            styles.secondaryBtn,
+            pressed && styles.secondaryBtnPressed,
+          ]}
+        >
+          <Text style={styles.secondaryBtnText}>Nearby incidents</Text>
+        </Pressable>
 
         <Pressable
           onPress={() => router.push(signedIn ? '/profile' : '/sign-in')}

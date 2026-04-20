@@ -20,9 +20,9 @@ export default function RootLayout() {
         | { reportId?: string; outageId?: string }
         | undefined;
       if (data?.reportId) {
-        router.push({ pathname: '/map', params: { reportId: data.reportId } });
+        router.push({ pathname: '/incidents', params: { reportId: data.reportId } });
       } else if (data?.outageId) {
-        router.push({ pathname: '/outages', params: { outageId: data.outageId } });
+        router.push({ pathname: '/incidents', params: { outageId: data.outageId } });
       }
     });
     return () => sub.remove();
@@ -42,6 +42,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ title: 'ClearWire Field' }} />
         <Stack.Screen name="report" options={{ title: 'New Report' }} />
         <Stack.Screen name="outage" options={{ headerShown: false }} />
+        <Stack.Screen name="incidents" options={{ headerShown: false }} />
         <Stack.Screen name="map" options={{ headerShown: false }} />
         <Stack.Screen name="outages" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
