@@ -886,11 +886,10 @@ async function uploadPhotoToStorage(photo: PickedPhoto): Promise<string> {
   const binary = globalThis.atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const filename = `edit/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${photo.ext}`;
-  const contentType = `image/${photo.ext === 'jpg' ? 'jpeg' : 'png'}`;
+  const filename = `edit/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
   const { error } = await supabase.storage
     .from('report-photos')
-    .upload(filename, bytes.buffer, { contentType, upsert: false });
+    .upload(filename, bytes.buffer, { contentType: 'image/jpeg', upsert: false });
   if (error) throw error;
   const { data } = supabase.storage.from('report-photos').getPublicUrl(filename);
   return data.publicUrl;
