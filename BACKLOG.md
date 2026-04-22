@@ -35,15 +35,13 @@ Needs a product/UX call before code work — not a pure implementation task.
 
 ## Open — shared architecture
 
-### Website ↔ app map drift (`packages/map-logic`)
-The app map (`apps/field-native/app/incidents.tsx`) and the website map were
-built independently. The original plan was to extract the website map's core
-logic into `packages/map-logic` (platform-agnostic TypeScript — Supabase
-queries, filter state hook, clustering, bounding-box math) and have both sides
-import from there. This was never done; drift risk is real today.
-
-Open question: is the website's existing code worth extracting, or cleaner to
-rewrite fresh into `packages/map-logic`?
+### Migrate the website to `packages/map-logic`
+The app side of `packages/map-logic` shipped in `dff180d` — the three map
+screens now import shared types, RPC wrappers, and filter predicates from
+the package. The website still runs its own duplicated copies of this
+logic. Next pass (separate PR to `main`, in the other website working
+copy) should update the website's map component to import from the same
+package so the two can't drift again.
 
 A later `packages/map-ui` (shared pin / card / filter-chip components via
 React Native Web) is worth considering only when drift becomes painful.
