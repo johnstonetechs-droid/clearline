@@ -131,3 +131,34 @@ export const SERVICE_TYPE_COLORS: Record<ServiceType, string> = {
   water: '#2563EB',
   other: '#7A94AE',
 };
+
+// ─── Map queries (nearby_reports / nearby_outages RPC return shapes) ─────────
+
+export interface NearbyReport {
+  id: string;
+  created_at: string;
+  damage_type: DamageType;
+  description: string | null;
+  photo_urls: string[];
+  latitude: number;
+  longitude: number;
+  accuracy_meters: number | null;
+  status: ReportStatus;
+  verified_by_pro: boolean;
+  affected_company: string | null;
+  reporter_display_name: string | null;
+}
+
+export interface NearbyOutage {
+  id: string;
+  created_at: string;
+  resolved_at: string | null;
+  service_type: ServiceType;
+  provider_company: string;
+  description: string | null;
+  latitude: number;
+  longitude: number;
+  status: OutageStatus;
+  external_ticket: string | null;
+  reporter_display_name: string | null;
+}

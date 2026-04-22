@@ -19,6 +19,7 @@
   "dependencies": {
     "@clearwire/brand": "workspace:*",
     "@clearwire/logic": "workspace:*",
+    "@clearwire/map-logic": "workspace:*",
     "@clearwire/supabase": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.45.0",

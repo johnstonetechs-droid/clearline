@@ -22,31 +22,24 @@ import {
   SERVICE_TYPE_ICONS,
   SERVICE_TYPE_COLORS,
 } from '@clearwire/supabase';
+import {
+  DEFAULT_RADIUS_MILES,
+  DEFAULT_SINCE_HOURS,
+  collectOrgs,
+  fetchNearbyOutages,
+  filterOutages,
+  type NearbyOutage,
+} from '@clearwire/map-logic';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { useToggleSet } from '../lib/useToggleSet';
 import { DamageIcon } from '../components/DamageIcon';
 
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
-const DEFAULT_RADIUS_MILES = 25;
-const DEFAULT_SINCE_HOURS = 72;
 
 type Center = { lat: number; lng: number };
 type ViewMode = 'map' | 'list';
-
-type NearbyOutage = {
-  id: string;
-  created_at: string;
-  resolved_at: string | null;
-  service_type: ServiceType;
-  provider_company: string;
-  description: string | null;
-  latitude: number;
-  longitude: number;
-  status: OutageStatus;
-  external_ticket: string | null;
-  reporter_display_name: string | null;
-};
 
 export default function OutagesScreen() {
   const router = useRouter();
@@ -58,8 +51,8 @@ export default function OutagesScreen() {
   const [selected, setSelected] = useState<NearbyOutage | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<ViewMode>('map');
-  const [serviceFilter, setServiceFilter] = useState<Set<ServiceType>>(new Set());
-  const [providerFilter, setProviderFilter] = useState<Set<string>>(new Set());
+  const serviceFilter = useToggleSet<ServiceType>();
+  const providerFilter = useToggleSet<string>();
 
   useEffect(() => {
     (async () => {
@@ -85,36 +78,32 @@ export default function OutagesScreen() {
     (async () => {
       setError(null);
       setOutages(null);
-      const { data, error: rpcError } = await supabase.rpc('nearby_outages', {
+      const { data, error: fetchError } = await fetchNearbyOutages(supabase, {
         lat: center.lat,
         lng: center.lng,
-        radius_miles: DEFAULT_RADIUS_MILES,
-        since_hours: DEFAULT_SINCE_HOURS,
       });
-      if (rpcError) {
-        setError(rpcError.message);
+      if (fetchError) {
+        setError(fetchError);
         setOutages([]);
         return;
       }
-      setOutages((data ?? []) as NearbyOutage[]);
+      setOutages(data);
     })();
   }, [center, refreshKey]);
 
-  const providersInResults = useMemo(() => {
-    const set = new Set<string>();
-    (outages ?? []).forEach((o) => {
-      if (o.provider_company) set.add(o.provider_company);
-    });
-    return Array.from(set).sort();
-  }, [outages]);
+  const providersInResults = useMemo(
+    () => collectOrgs([], outages ?? []),
+    [outages]
+  );
 
-  const filtered = useMemo(() => {
-    return (outages ?? []).filter((o) => {
-      if (serviceFilter.size > 0 && !serviceFilter.has(o.service_type)) return false;
-      if (providerFilter.size > 0 && !providerFilter.has(o.provider_company)) return false;
-      return true;
-    });
-  }, [outages, serviceFilter, providerFilter]);
+  const filtered = useMemo(
+    () =>
+      filterOutages(outages ?? [], {
+        serviceTypes: serviceFilter.values,
+        orgs: providerFilter.values,
+      }),
+    [outages, serviceFilter.values, providerFilter.values]
+  );
 
   const byId = useMemo(() => {
     const map: Record<string, NearbyOutage> = {};
@@ -150,22 +139,6 @@ export default function OutagesScreen() {
     },
     [byId]
   );
-
-  function toggleService(t: ServiceType) {
-    setServiceFilter((prev) => {
-      const next = new Set(prev);
-      next.has(t) ? next.delete(t) : next.add(t);
-      return next;
-    });
-  }
-
-  function toggleProvider(name: string) {
-    setProviderFilter((prev) => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -224,7 +197,7 @@ export default function OutagesScreen() {
             return (
               <Pressable
                 key={type}
-                onPress={() => toggleService(type)}
+                onPress={() => serviceFilter.toggle(type)}
                 style={[
                   styles.filterChip,
                   active && {
@@ -261,7 +234,7 @@ export default function OutagesScreen() {
               return (
                 <Pressable
                   key={name}
-                  onPress={() => toggleProvider(name)}
+                  onPress={() => providerFilter.toggle(name)}
                   style={[
                     styles.filterChip,
                     active && { backgroundColor: T.primary, borderColor: T.primary },

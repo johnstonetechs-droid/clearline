@@ -27,46 +27,27 @@ import {
   SERVICE_TYPE_ICONS,
   SERVICE_TYPE_COLORS,
 } from '@clearwire/supabase';
+import {
+  DEFAULT_RADIUS_MILES,
+  DEFAULT_SINCE_HOURS,
+  collectOrgs,
+  fetchNearbyOutages,
+  fetchNearbyReports,
+  filterOutages,
+  filterReports,
+  type NearbyOutage,
+  type NearbyReport,
+} from '@clearwire/map-logic';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { useToggleSet } from '../lib/useToggleSet';
 import { DamageIcon } from '../components/DamageIcon';
 
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
-const DEFAULT_RADIUS_MILES = 25;
-const DEFAULT_SINCE_HOURS = 72;
 
 type Center = { lat: number; lng: number };
 type ViewMode = 'map' | 'list';
-
-type NearbyReport = {
-  id: string;
-  created_at: string;
-  damage_type: DamageType;
-  description: string | null;
-  photo_urls: string[];
-  latitude: number;
-  longitude: number;
-  accuracy_meters: number | null;
-  status: ReportStatus;
-  verified_by_pro: boolean;
-  affected_company: string | null;
-  reporter_display_name: string | null;
-};
-
-type NearbyOutage = {
-  id: string;
-  created_at: string;
-  resolved_at: string | null;
-  service_type: ServiceType;
-  provider_company: string;
-  description: string | null;
-  latitude: number;
-  longitude: number;
-  status: OutageStatus;
-  external_ticket: string | null;
-  reporter_display_name: string | null;
-};
 
 type IncidentItem =
   | { kind: 'damage'; data: NearbyReport }
@@ -90,9 +71,9 @@ export default function IncidentsScreen() {
   const [showOutages, setShowOutages] = useState(true);
 
   // Secondary filters.
-  const [damageFilter, setDamageFilter] = useState<Set<DamageType>>(new Set());
-  const [serviceFilter, setServiceFilter] = useState<Set<ServiceType>>(new Set());
-  const [orgFilter, setOrgFilter] = useState<Set<string>>(new Set());
+  const damageFilter = useToggleSet<DamageType>();
+  const serviceFilter = useToggleSet<ServiceType>();
+  const orgFilter = useToggleSet<string>();
 
   useEffect(() => {
     (async () => {
@@ -121,59 +102,48 @@ export default function IncidentsScreen() {
       setOutages(null);
 
       const [damageRes, outageRes] = await Promise.all([
-        supabase.rpc('nearby_reports', {
-          lat: center.lat,
-          lng: center.lng,
-          radius_miles: DEFAULT_RADIUS_MILES,
-          since_hours: DEFAULT_SINCE_HOURS,
-        }),
-        supabase.rpc('nearby_outages', {
-          lat: center.lat,
-          lng: center.lng,
-          radius_miles: DEFAULT_RADIUS_MILES,
-          since_hours: DEFAULT_SINCE_HOURS,
-        }),
+        fetchNearbyReports(supabase, { lat: center.lat, lng: center.lng }),
+        fetchNearbyOutages(supabase, { lat: center.lat, lng: center.lng }),
       ]);
 
       const messages: string[] = [];
-      if (damageRes.error) messages.push(`damage: ${damageRes.error.message}`);
-      if (outageRes.error) messages.push(`outages: ${outageRes.error.message}`);
+      if (damageRes.error) messages.push(`damage: ${damageRes.error}`);
+      if (outageRes.error) messages.push(`outages: ${outageRes.error}`);
       if (messages.length) setError(messages.join(' · '));
 
-      setReports((damageRes.data ?? []) as NearbyReport[]);
-      setOutages((outageRes.data ?? []) as NearbyOutage[]);
+      setReports(damageRes.data);
+      setOutages(outageRes.data);
     })();
   }, [center, refreshKey]);
 
   // Unique organizations across both data sources (affected_company on damage,
-  // provider_company on outages). We let one filter select across both.
-  const orgsInResults = useMemo(() => {
-    const set = new Set<string>();
-    (reports ?? []).forEach((r) => r.affected_company && set.add(r.affected_company));
-    (outages ?? []).forEach((o) => o.provider_company && set.add(o.provider_company));
-    return Array.from(set).sort();
-  }, [reports, outages]);
+  // provider_company on outages). One filter selects across both.
+  const orgsInResults = useMemo(
+    () => collectOrgs(reports ?? [], outages ?? []),
+    [reports, outages]
+  );
 
-  const filteredDamage = useMemo(() => {
-    if (!showDamage) return [];
-    return (reports ?? []).filter((r) => {
-      if (damageFilter.size > 0 && !damageFilter.has(r.damage_type)) return false;
-      if (orgFilter.size > 0) {
-        if (!r.affected_company) return false;
-        if (!orgFilter.has(r.affected_company)) return false;
-      }
-      return true;
-    });
-  }, [reports, showDamage, damageFilter, orgFilter]);
+  const filteredDamage = useMemo(
+    () =>
+      showDamage
+        ? filterReports(reports ?? [], {
+            damageTypes: damageFilter.values,
+            orgs: orgFilter.values,
+          })
+        : [],
+    [reports, showDamage, damageFilter.values, orgFilter.values]
+  );
 
-  const filteredOutages = useMemo(() => {
-    if (!showOutages) return [];
-    return (outages ?? []).filter((o) => {
-      if (serviceFilter.size > 0 && !serviceFilter.has(o.service_type)) return false;
-      if (orgFilter.size > 0 && !orgFilter.has(o.provider_company)) return false;
-      return true;
-    });
-  }, [outages, showOutages, serviceFilter, orgFilter]);
+  const filteredOutages = useMemo(
+    () =>
+      showOutages
+        ? filterOutages(outages ?? [], {
+            serviceTypes: serviceFilter.values,
+            orgs: orgFilter.values,
+          })
+        : [],
+    [outages, showOutages, serviceFilter.values, orgFilter.values]
+  );
 
   const reportsById = useMemo(() => {
     const m: Record<string, NearbyReport> = {};
@@ -314,7 +284,7 @@ export default function IncidentsScreen() {
               return (
                 <Pressable
                   key={type}
-                  onPress={() => toggleFilter(setDamageFilter, type)}
+                  onPress={() => damageFilter.toggle(type)}
                   style={[
                     styles.filterChip,
                     active && { backgroundColor: APWA_COLORS[type], borderColor: APWA_COLORS[type] },
@@ -345,7 +315,7 @@ export default function IncidentsScreen() {
               return (
                 <Pressable
                   key={type}
-                  onPress={() => toggleFilter(setServiceFilter, type)}
+                  onPress={() => serviceFilter.toggle(type)}
                   style={[
                     styles.filterChip,
                     active && {
@@ -379,7 +349,7 @@ export default function IncidentsScreen() {
               return (
                 <Pressable
                   key={name}
-                  onPress={() => toggleFilter(setOrgFilter, name)}
+                  onPress={() => orgFilter.toggle(name)}
                   style={[
                     styles.filterChip,
                     active && { backgroundColor: T.primary, borderColor: T.primary },
@@ -449,14 +419,6 @@ export default function IncidentsScreen() {
       )}
     </SafeAreaView>
   );
-}
-
-function toggleFilter<T>(setter: (fn: (prev: Set<T>) => Set<T>) => void, value: T) {
-  setter((prev) => {
-    const next = new Set(prev);
-    next.has(value) ? next.delete(value) : next.add(value);
-    return next;
-  });
 }
 
 function IncidentList({

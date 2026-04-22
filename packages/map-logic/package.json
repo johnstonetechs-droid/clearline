@@ -1,0 +1,13 @@
+{
+  "name": "@clearwire/map-logic",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@clearwire/supabase": "workspace:*"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

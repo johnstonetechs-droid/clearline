@@ -22,32 +22,24 @@ import {
   DAMAGE_TYPE_LABELS,
   DAMAGE_TYPE_ICONS,
 } from '@clearwire/supabase';
+import {
+  DEFAULT_RADIUS_MILES,
+  DEFAULT_SINCE_HOURS,
+  collectOrgs,
+  fetchNearbyReports,
+  filterReports,
+  type NearbyReport,
+} from '@clearwire/map-logic';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { useToggleSet } from '../lib/useToggleSet';
 import { DamageIcon } from '../components/DamageIcon';
 
 const FALLBACK_CENTER: [number, number] = [41.4993, -81.6944];
-const DEFAULT_RADIUS_MILES = 25;
-const DEFAULT_SINCE_HOURS = 72;
 
 type Center = { lat: number; lng: number };
 type ViewMode = 'map' | 'list';
-
-type NearbyReport = {
-  id: string;
-  created_at: string;
-  damage_type: DamageType;
-  description: string | null;
-  photo_urls: string[];
-  latitude: number;
-  longitude: number;
-  accuracy_meters: number | null;
-  status: ReportStatus;
-  verified_by_pro: boolean;
-  affected_company: string | null;
-  reporter_display_name: string | null;
-};
 
 export default function MapScreen() {
   const router = useRouter();
@@ -59,8 +51,8 @@ export default function MapScreen() {
   const [selected, setSelected] = useState<NearbyReport | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState<ViewMode>('map');
-  const [damageFilter, setDamageFilter] = useState<Set<DamageType>>(new Set());
-  const [companyFilter, setCompanyFilter] = useState<Set<string>>(new Set());
+  const damageFilter = useToggleSet<DamageType>();
+  const companyFilter = useToggleSet<string>();
 
   useEffect(() => {
     (async () => {
@@ -86,39 +78,32 @@ export default function MapScreen() {
     (async () => {
       setError(null);
       setReports(null);
-      const { data, error: rpcError } = await supabase.rpc('nearby_reports', {
+      const { data, error: fetchError } = await fetchNearbyReports(supabase, {
         lat: center.lat,
         lng: center.lng,
-        radius_miles: DEFAULT_RADIUS_MILES,
-        since_hours: DEFAULT_SINCE_HOURS,
       });
-      if (rpcError) {
-        setError(rpcError.message);
+      if (fetchError) {
+        setError(fetchError);
         setReports([]);
         return;
       }
-      setReports((data ?? []) as NearbyReport[]);
+      setReports(data);
     })();
   }, [center, refreshKey]);
 
-  const companiesInResults = useMemo(() => {
-    const set = new Set<string>();
-    (reports ?? []).forEach((r) => {
-      if (r.affected_company) set.add(r.affected_company);
-    });
-    return Array.from(set).sort();
-  }, [reports]);
+  const companiesInResults = useMemo(
+    () => collectOrgs(reports ?? [], []),
+    [reports]
+  );
 
-  const filteredReports = useMemo(() => {
-    return (reports ?? []).filter((r) => {
-      if (damageFilter.size > 0 && !damageFilter.has(r.damage_type)) return false;
-      if (companyFilter.size > 0) {
-        if (!r.affected_company) return false;
-        if (!companyFilter.has(r.affected_company)) return false;
-      }
-      return true;
-    });
-  }, [reports, damageFilter, companyFilter]);
+  const filteredReports = useMemo(
+    () =>
+      filterReports(reports ?? [], {
+        damageTypes: damageFilter.values,
+        orgs: companyFilter.values,
+      }),
+    [reports, damageFilter.values, companyFilter.values]
+  );
 
   const reportsById = useMemo(() => {
     const byId: Record<string, NearbyReport> = {};
@@ -155,24 +140,6 @@ export default function MapScreen() {
     },
     [reportsById]
   );
-
-  function toggleDamage(type: DamageType) {
-    setDamageFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
-  }
-
-  function toggleCompany(name: string) {
-    setCompanyFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -232,7 +199,7 @@ export default function MapScreen() {
             return (
               <Pressable
                 key={type}
-                onPress={() => toggleDamage(type)}
+                onPress={() => damageFilter.toggle(type)}
                 style={[
                   styles.filterChip,
                   active && { backgroundColor: APWA_COLORS[type], borderColor: APWA_COLORS[type] },
@@ -266,7 +233,7 @@ export default function MapScreen() {
               return (
                 <Pressable
                   key={name}
-                  onPress={() => toggleCompany(name)}
+                  onPress={() => companyFilter.toggle(name)}
                   style={[styles.filterChip, active && styles.filterChipCompanyActive]}
                 >
                   <Text

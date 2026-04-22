@@ -57,6 +57,9 @@ importers:
       '@clearwire/logic':
         specifier: workspace:*
         version: link:../../packages/logic
+      '@clearwire/map-logic':
+        specifier: workspace:*
+        version: link:../../packages/map-logic
       '@clearwire/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -159,6 +162,15 @@ importers:
       '@clearwire/supabase':
         specifier: workspace:*
         version: link:../supabase
+
+  packages/map-logic:
+    dependencies:
+      '@clearwire/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@supabase/supabase-js':
+        specifier: ^2.45.0
+        version: 2.103.3
 
   packages/supabase:
     dependencies:
