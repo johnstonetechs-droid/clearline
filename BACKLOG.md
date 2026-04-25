@@ -61,11 +61,12 @@ React Native Web) is worth considering only when drift becomes painful.
     - Rich metadata (Open Graph, JSON-LD, per-page title/description) as a
       quick win regardless
 
-- **Search Console noindex investigation.** Earlier Search Console notice
-  flagged "Excluded by 'noindex' tag." Homepage is fine (`index, follow` in
-  both meta tag and header). Affected URLs are likely Vercel preview URLs
-  (auto-noindex, harmless) or a dev-leftover `noindex` in one of the
-  subprojects. Resolve during the next SEO pass.
+- **Search Console verification (post-merge of `website/robots-txt`).**
+  After the robots.txt + root `vercel.json` PR ships, re-request indexing
+  in Search Console for any URLs previously flagged "Excluded by 'noindex'
+  tag." If anything is still excluded, the next suspect is the CSR-empty-
+  HTML problem above (Googlebot rendering deep pages without enough
+  signal), not a noindex header.
 
 ---
 
@@ -91,6 +92,7 @@ polish) from the prior roadmap are all done. Headline commits on
 - damage_type vs services_affected → split into two fields (commit `3227f56`)
 
 **In-flight branches off main (open PRs):**
-- `website/robots-txt` — adds `public/robots.txt` to the root site
-  (commit `26e54e5`). Open PR:
+- `website/robots-txt` — adds `public/robots.txt` (`26e54e5`) and root
+  `vercel.json` forcing `X-Robots-Tag: index, follow` (`3c86b28`) to the
+  clearwire.app root site. Open PR:
   https://github.com/johnstonetechs-droid/clearwire/pull/new/website/robots-txt
