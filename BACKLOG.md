@@ -54,9 +54,6 @@ React Native Web) is worth considering only when drift becomes painful.
 
 ## Open — website
 
-- **robots.txt missing.** `https://clearwire.app/robots.txt` returns 404.
-  Add a basic robots.txt that allows indexing and points to a sitemap.
-
 - **SEO — site is client-side rendered.** Googlebot sees a near-empty HTML
   shell because Vite + React renders after JS load. Options:
     - Prerender.io or Vercel prerendering (easy)
@@ -92,3 +89,8 @@ polish) from the prior roadmap are all done. Headline commits on
 - Additional photos → `text[]` column on `reports` (not a child table)
 - Magic-link auth → kept as fallback; email+password is primary
 - damage_type vs services_affected → split into two fields (commit `3227f56`)
+
+**In-flight branches off main (open PRs):**
+- `website/robots-txt` — adds `public/robots.txt` to the root site
+  (commit `26e54e5`). Open PR:
+  https://github.com/johnstonetechs-droid/clearwire/pull/new/website/robots-txt
