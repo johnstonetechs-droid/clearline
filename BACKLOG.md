@@ -35,14 +35,6 @@ production EAS build, commit real PNG/SVG app icons and uncomment the
 `apps/field-native/app.config.ts` (currently commented out so the dev build
 prebuild step doesn't fail on missing assets).
 
-### Pin-glyph by services_affected (polish)
-Schema split shipped (`0013_services_affected.sql`, plus capture UI and
-filter chips). Map pins still render by `damage_type`. Next polish step:
-the WebView Leaflet template should pick the pin glyph/color from the
-report's `services_affected` (when set) so the legend unifies damage and
-outage pins around service disruption. Falls back to the damage_type
-color when `services_affected` is null/empty.
-
 ---
 
 ## Open — shared architecture

@@ -32,6 +32,7 @@ import {
   collectOrgs,
   fetchNearbyReports,
   filterReports,
+  primaryService,
   type NearbyReport,
 } from '@clearwire/map-logic';
 
@@ -581,12 +582,17 @@ function timeAgo(iso: string): string {
 }
 
 function buildMapHtml(center: Center, reports: NearbyReport[]): string {
-  const markers = reports.map((r) => ({
-    id: r.id,
-    lat: r.latitude,
-    lng: r.longitude,
-    color: APWA_COLORS[r.damage_type] ?? palette.n400,
-  }));
+  const markers = reports.map((r) => {
+    const primary = primaryService(r.services_affected);
+    return {
+      id: r.id,
+      lat: r.latitude,
+      lng: r.longitude,
+      color: primary
+        ? SERVICE_TYPE_COLORS[primary]
+        : APWA_COLORS[r.damage_type] ?? palette.n400,
+    };
+  });
 
   const markersJson = JSON.stringify(markers);
   const centerJson = JSON.stringify([center.lat, center.lng]);

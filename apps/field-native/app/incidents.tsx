@@ -35,6 +35,7 @@ import {
   fetchNearbyReports,
   filterOutages,
   filterReports,
+  primaryService,
   type NearbyOutage,
   type NearbyReport,
 } from '@clearwire/map-logic';
@@ -801,13 +802,18 @@ function buildIncidentsHtml(
   damage: NearbyReport[],
   outages: NearbyOutage[]
 ): string {
-  const damageMarkers = damage.map((r) => ({
-    kind: 'damage',
-    id: r.id,
-    lat: r.latitude,
-    lng: r.longitude,
-    color: APWA_COLORS[r.damage_type] ?? palette.n400,
-  }));
+  const damageMarkers = damage.map((r) => {
+    const primary = primaryService(r.services_affected);
+    return {
+      kind: 'damage',
+      id: r.id,
+      lat: r.latitude,
+      lng: r.longitude,
+      color: primary
+        ? SERVICE_TYPE_COLORS[primary]
+        : APWA_COLORS[r.damage_type] ?? palette.n400,
+    };
+  });
   const outageMarkers = outages.map((o) => ({
     kind: 'outage',
     id: o.id,
